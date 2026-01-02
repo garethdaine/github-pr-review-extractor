@@ -1,5 +1,30 @@
 let extractedIssues = [];
 
+// Handle filter checkbox changes
+document.addEventListener('DOMContentLoaded', () => {
+  const excludeOutdatedCheckbox = document.getElementById('excludeOutdated');
+  if (excludeOutdatedCheckbox) {
+    excludeOutdatedCheckbox.addEventListener('change', async () => {
+      // Re-extract with new filter setting
+      if (extractedIssues.length > 0) {
+        const button = document.getElementById('extractBtn');
+        button.click();
+      }
+    });
+  }
+});
+
+function updateFilterStats(totalCount, outdatedCount) {
+  const statsDiv = document.getElementById('filterStats');
+  if (outdatedCount > 0) {
+    statsDiv.textContent = `${outdatedCount} of ${totalCount} issues are outdated`;
+    statsDiv.style.display = 'block';
+  } else {
+    statsDiv.textContent = 'No outdated issues found';
+    statsDiv.style.display = 'block';
+  }
+}
+
 document.getElementById('extractBtn').addEventListener('click', async () => {
   const button = document.getElementById('extractBtn');
   const status = document.getElementById('status');
@@ -19,8 +44,12 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
       return;
     }
     
+    // Get filter settings
+    const excludeOutdated = document.getElementById('excludeOutdated')?.checked || false;
+    const filterOptions = { excludeOutdated };
+    
     // Send message to content script to extract issues
-    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'grouped' }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'grouped', filterOptions }, (response) => {
       if (chrome.runtime.lastError) {
         showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
         button.disabled = false;
@@ -31,14 +60,23 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
       if (response.success) {
         extractedIssues = response.issues || [];
         
+        // Show filter section if there are issues
+        if (response.totalCount > 0) {
+          document.getElementById('filterSection').style.display = 'block';
+          updateFilterStats(response.totalCount, response.outdatedCount);
+        }
+        
         if (response.count === 0) {
-          showStatus('No bot issues found on this PR.', 'info');
+          const msg = response.totalCount > 0 ? 
+            `All ${response.totalCount} comments are outdated. Uncheck the filter to see them.` :
+            'No review comments found on this PR.';
+          showStatus(msg, 'info');
         } else {
-          showStatus(`✓ Found ${response.count} issue${response.count !== 1 ? 's' : ''}!`, 'success');
+          showStatus(`✓ Found ${response.count} comment${response.count !== 1 ? 's' : ''}!`, 'success');
           // Show format options and issues list
           document.getElementById('formatSection').style.display = 'block';
           document.getElementById('issuesSection').style.display = 'block';
-          renderIssuesList(extractedIssues);
+          renderIssuesList(extractedIssues, excludeOutdated);
           // Auto-copy default format
           copyToClipboard(response.text, 'Grouped format copied to clipboard!');
         }
@@ -75,8 +113,11 @@ document.getElementById('copyJSON').addEventListener('click', async () => {
 
 async function copyFormat(format, successMessage) {
   try {
+    const excludeOutdated = document.getElementById('excludeOutdated')?.checked || false;
+    const filterOptions = { excludeOutdated };
+    
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: format }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: format, filterOptions }, (response) => {
       if (response.success) {
         copyToClipboard(response.text, successMessage);
       } else {
@@ -88,26 +129,32 @@ async function copyFormat(format, successMessage) {
   }
 }
 
-function renderIssuesList(issues) {
+function renderIssuesList(issues, excludeOutdated = false) {
   const issuesList = document.getElementById('issuesList');
   issuesList.innerHTML = '';
   issuesList.style.display = 'block';
   
-  issues.forEach((issue, index) => {
+  // Filter issues for display
+  const displayIssues = excludeOutdated ? issues.filter(i => !i.outdated) : issues;
+  
+  displayIssues.forEach((issue, index) => {
     const issueItem = document.createElement('div');
     issueItem.className = 'issue-item';
     
     const severityClass = `severity-${issue.severity}`;
     const severityEmoji = issue.severity === 'critical' ? '🔴' : 
                          issue.severity === 'warning' ? '🟡' : '🔵';
+    const outdatedLabel = issue.outdated ? ' <span style="color: #57606a; font-size: 10px;">(Outdated)</span>' : '';
+    const authorBadge = issue.isBot ? '🤖' : '👤';
     
     issueItem.innerHTML = `
       <div class="issue-header">
         <span class="severity-badge ${severityClass}">${severityEmoji} ${issue.severity.toUpperCase()}</span>
         <button class="copy-single" data-index="${index}">Copy</button>
       </div>
-      <div class="issue-title">${issue.title}</div>
+      <div class="issue-title">${issue.title}${outdatedLabel}</div>
       <div class="issue-file">📁 ${issue.filePath}</div>
+      <div class="issue-file">${authorBadge} ${issue.author}</div>
     `;
     
     issuesList.appendChild(issueItem);

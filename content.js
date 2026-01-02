@@ -1,4 +1,4 @@
-// Extract bot-generated issues and suggestions from GitHub PR pages
+// Extract all review comments from GitHub PR pages
 
 function extractBotIssues() {
   const issues = [];
@@ -25,30 +25,63 @@ function extractBotIssues() {
       .trim();
   }
   
-  // Extract Copilot AI and bot review comments from review threads
+  // Extract all review comments from review threads
   const reviewThreads = document.querySelectorAll('.review-thread-component');
   
   reviewThreads.forEach((thread) => {
+    // Check if thread is outdated or resolved
+    const hasOutdatedLabel = thread.querySelector('span[title="Label: Outdated"]') !== null;
+    const labelText = thread.querySelector('.Label')?.textContent?.trim();
+    const isLabeledOutdated = labelText === 'Outdated';
+    const hasResolvedAttribute = thread.hasAttribute('data-resolved') && thread.getAttribute('data-resolved') === 'true';
+    
+    const isOutdated = hasOutdatedLabel || isLabeledOutdated || hasResolvedAttribute;
+    
     const commentGroups = thread.querySelectorAll('.timeline-comment-group');
     
     commentGroups.forEach((group) => {
-      // Check if this is a bot comment (Copilot or Cursor)
+      // Get author information
       const authorStrong = group.querySelector('strong');
       if (!authorStrong) return;
       
       const authorLink = authorStrong.querySelector('a');
-      const labelSpan = authorStrong.querySelector('.Label');
+      if (!authorLink) return;
       
-      if (!authorLink || !labelSpan) return;
+      const authorText = authorLink.textContent.trim();
+      const authorTextLower = authorText.toLowerCase();
       
-      const authorText = authorLink.textContent.toLowerCase();
-      const labelText = labelSpan.textContent.toLowerCase();
+      // Look for Label - it might be inside strong or a sibling
+      const labelSpan = authorStrong.querySelector('.Label') || 
+                        authorLink.parentElement?.querySelector('.Label');
+      const labelText = labelSpan ? labelSpan.textContent.toLowerCase() : '';
       
-      // Check if it's a bot comment
-      const isCopilot = authorText.includes('copilot') || labelText.includes('ai');
-      const isCursorBot = authorText.includes('cursor') && labelText.includes('bot');
+      // Determine comment type/author type
+      let commentType = 'Human Reviewer';
+      let authorType = authorText; // Default to actual author name
+      let source = 'Code Review';
       
-      if (!isCopilot && !isCursorBot) return;
+      const isCopilot = authorTextLower.includes('copilot') || labelText.includes('ai');
+      const isCursorBot = (authorTextLower.includes('cursor') || authorLink.href?.includes('/apps/cursor')) && 
+                         (labelText.includes('bot') || labelSpan !== null);
+      const isBot = labelText.includes('bot') && !isCopilot && !isCursorBot;
+      
+      if (isCopilot) {
+        commentType = 'GitHub Copilot AI';
+        authorType = 'Copilot';
+        source = 'Copilot Code Review';
+      } else if (isCursorBot) {
+        commentType = 'Cursor Bot';
+        authorType = 'Cursor';
+        source = 'Bot Code Review';
+      } else if (isBot) {
+        commentType = 'Bot';
+        authorType = authorText;
+        source = 'Bot Code Review';
+      } else {
+        commentType = 'Human Reviewer';
+        authorType = authorText;
+        source = 'Code Review';
+      }
       
       // Extract file context
       const fileLink = thread.querySelector('a.text-mono.text-small');
@@ -89,7 +122,7 @@ function extractBotIssues() {
       
       // Get title
       const title = commentClone.querySelector('h1, h2, h3')?.textContent.trim() || 
-                   (isCopilot ? 'Copilot Suggestion' : 'Cursor Bot Suggestion');
+                   `${authorType} Comment`;
       
       // Get main content paragraphs
       const paragraphs = Array.from(commentClone.querySelectorAll('p'));
@@ -126,14 +159,18 @@ function extractBotIssues() {
       }
       
       issues.push({
-        type: isCopilot ? 'GitHub Copilot AI' : 'Cursor Bot',
+        type: commentType,
+        author: authorType,
         title: title,
         content: content,
         filePath: filePath,
         codeContext: codeLines.length > 0 ? codeLines.join('\n') : null,
         timestamp: timestamp,
-        source: isCopilot ? 'Copilot Code Review' : 'Bot Code Review',
-        severity: severity
+        source: source,
+        severity: severity,
+        outdated: isOutdated,
+        isBot: isCopilot || isCursorBot || isBot,
+        isHuman: !isCopilot && !isCursorBot && !isBot
       });
     });
   });
@@ -166,26 +203,70 @@ function groupIssuesByFile(issues) {
   return grouped;
 }
 
+// Filter issues based on criteria
+function filterIssues(issues, options = {}) {
+  let filtered = [...issues];
+  
+  // Filter out outdated issues if requested
+  if (options.excludeOutdated) {
+    filtered = filtered.filter(issue => !issue.outdated);
+  }
+  
+  // Filter by severity if specified
+  if (options.severity) {
+    filtered = filtered.filter(issue => issue.severity === options.severity);
+  }
+  
+  return filtered;
+}
+
 // Format with grouping by file
-function formatIssuesGroupedByFile(issues, includeInstructions = true) {
-  if (issues.length === 0) {
+function formatIssuesGroupedByFile(issues, includeInstructions = true, options = {}) {
+  // Apply filters if provided
+  const filteredIssues = filterIssues(issues, options);
+  
+  if (filteredIssues.length === 0) {
     return 'No bot-generated issues or suggestions found on this PR.';
   }
   
   const prUrl = window.location.href;
   const prTitle = document.querySelector('.js-issue-title')?.textContent.trim() || 'PR';
-  const grouped = groupIssuesByFile(issues);
+  const grouped = groupIssuesByFile(filteredIssues);
   
   // Count by severity
   const severityCounts = { critical: 0, warning: 0, suggestion: 0 };
-  issues.forEach(issue => severityCounts[issue.severity]++);
+  filteredIssues.forEach(issue => severityCounts[issue.severity]++);
   
-  let output = `# Code Review Issues - ${prTitle}\n\n`;
+  // Count by author type
+  const authorCounts = {};
+  filteredIssues.forEach(issue => {
+    authorCounts[issue.type] = (authorCounts[issue.type] || 0) + 1;
+  });
+  
+  // Count outdated
+  const outdatedCount = issues.filter(i => i.outdated).length;
+  const totalOriginal = issues.length;
+  
+  let output = `# Code Review Comments - ${prTitle}\n\n`;
   output += `**PR:** ${prUrl}\n`;
   output += `**Extracted:** ${new Date().toLocaleString()}\n`;
-  output += `**Total Issues:** ${issues.length} `;
-  output += `(🔴 ${severityCounts.critical} Critical, 🟡 ${severityCounts.warning} Warnings, 🔵 ${severityCounts.suggestion} Suggestions)\n\n`;
-  output += '---\n\n';
+  output += `**Total Comments:** ${filteredIssues.length}`;
+  if (options.excludeOutdated && outdatedCount > 0) {
+    output += ` (${outdatedCount} outdated excluded, ${totalOriginal} total)`;
+  }
+  output += `\n\n**By Severity:** 🔴 ${severityCounts.critical} Critical, 🟡 ${severityCounts.warning} Warnings, 🔵 ${severityCounts.suggestion} Suggestions\n`;
+  
+  // Show author breakdown
+  if (Object.keys(authorCounts).length > 0) {
+    output += `**By Author Type:** `;
+    const authorBreakdown = Object.entries(authorCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => `${type} (${count})`)
+      .join(', ');
+    output += `${authorBreakdown}\n`;
+  }
+  
+  output += '\n---\n\n';
   
   // Sort files by number of issues (descending)
   const sortedFiles = Object.keys(grouped).sort((a, b) => 
@@ -199,7 +280,9 @@ function formatIssuesGroupedByFile(issues, includeInstructions = true) {
     
     fileIssues.forEach((issue, index) => {
       const severityInfo = getSeverityInfo(issue.severity);
-      output += `### ${severityInfo.emoji} ${issue.title}\n\n`;
+      const outdatedLabel = issue.outdated ? ' ~~(Outdated)~~' : '';
+      output += `### ${severityInfo.emoji} ${issue.title}${outdatedLabel}\n\n`;
+      output += `**Author:** ${issue.author} (${issue.type})\n`;
       output += `**Severity:** ${severityInfo.label}\n\n`;
       
       if (issue.codeContext) {
@@ -218,8 +301,11 @@ function formatIssuesGroupedByFile(issues, includeInstructions = true) {
   
   if (includeInstructions) {
     output += `\n## Instructions for Cursor AI\n\n`;
-    output += `Please review these ${issues.length} code review suggestions grouped by file. `;
+    output += `Please review these ${filteredIssues.length} code review suggestions grouped by file. `;
     output += `Prioritize 🔴 CRITICAL issues first, then 🟡 WARNINGS, then 🔵 SUGGESTIONS.\n\n`;
+    if (options.excludeOutdated && outdatedCount > 0) {
+      output += `**Note:** ${outdatedCount} outdated issue${outdatedCount !== 1 ? 's have' : ' has'} been excluded from this report.\n\n`;
+    }
     output += `For each issue:\n`;
     output += `1. Read the suggestion carefully\n`;
     output += `2. Locate the relevant code in the file\n`;
@@ -235,6 +321,7 @@ function formatSingleIssue(issue, index) {
   const severityInfo = getSeverityInfo(issue.severity);
   
   let output = `## ${severityInfo.emoji} ${issue.title}\n\n`;
+  output += `**Author:** ${issue.author} (${issue.type})\n`;
   output += `**File:** \`${issue.filePath}\`\n`;
   output += `**Severity:** ${severityInfo.label}\n\n`;
   
@@ -300,28 +387,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try {
       const issues = extractBotIssues();
       const format = request.format || 'grouped';
+      const filterOptions = request.filterOptions || {};
+      
+      // Apply filters to get the count
+      const filteredIssues = filterIssues(issues, filterOptions);
       
       let formattedText;
       switch(format) {
         case 'grouped':
-          formattedText = formatIssuesGroupedByFile(issues, true);
+          formattedText = formatIssuesGroupedByFile(issues, true, filterOptions);
           break;
         case 'summary':
-          formattedText = formatIssuesSummary(issues);
+          formattedText = formatIssuesSummary(filteredIssues);
           break;
         case 'json':
-          formattedText = formatIssuesAsJSON(issues);
+          formattedText = formatIssuesAsJSON(filteredIssues);
           break;
         case 'no-instructions':
-          formattedText = formatIssuesGroupedByFile(issues, false);
+          formattedText = formatIssuesGroupedByFile(issues, false, filterOptions);
           break;
         default:
-          formattedText = formatIssuesGroupedByFile(issues, true);
+          formattedText = formatIssuesGroupedByFile(issues, true, filterOptions);
       }
       
       sendResponse({
         success: true,
-        count: issues.length,
+        count: filteredIssues.length,
+        totalCount: issues.length,
+        outdatedCount: issues.filter(i => i.outdated).length,
         text: formattedText,
         issues: issues // Send raw issues for popup to use
       });

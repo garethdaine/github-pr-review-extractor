@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GitHub PR Bot Extractor",
-  "version": "2.0.0",
-  "description": "Extract Copilot and Bugbot issues/suggestions from GitHub PRs to clipboard",
+  "name": "GitHub PR Review Extractor",
+  "version": "3.0.0",
+  "description": "Extract all review comments from GitHub PRs (bots and humans) with filtering",
   "permissions": [
     "activeTab",
     "clipboardWrite"

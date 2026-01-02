@@ -197,11 +197,20 @@
   </style>
 </head>
 <body>
-  <h1>🤖 GitHub PR Bot Extractor</h1>
-  <p class="description">Extract Copilot and Bugbot suggestions from this PR page.</p>
+  <h1>📝 GitHub PR Review Extractor</h1>
+  <p class="description">Extract all review comments from this PR (bots and humans).</p>
   
   <div class="section">
     <button id="extractBtn">Extract All Issues</button>
+  </div>
+  
+  <div class="section" id="filterSection" style="display: none;">
+    <div class="section-title">Filters:</div>
+    <label style="display: flex; align-items: center; font-size: 13px; color: #24292f; cursor: pointer;">
+      <input type="checkbox" id="excludeOutdated" style="margin-right: 8px;" checked>
+      Exclude outdated issues
+    </label>
+    <div id="filterStats" style="font-size: 11px; color: #57606a; margin-top: 4px;"></div>
   </div>
   
   <div class="section" id="formatSection" style="display: none;">
