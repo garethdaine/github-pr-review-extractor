@@ -82,7 +82,7 @@ The extension extracts **all review comments** from a PR, including:
 
 The default export format is Markdown, organized by file:
 
-```markdown
+````markdown
 # Code Review Comments - Feature/my-feature
 
 **PR:** https://github.com/org/repo/pull/123
@@ -124,7 +124,7 @@ The function signature changed from accepting an object to a string...
 Should we add try-catch here for better error handling?
 
 ---
-```
+````
 
 ## Privacy & Permissions
 
