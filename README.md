@@ -107,6 +107,7 @@ The default export format is Markdown, organized by file:
 ```
 45: export function getData(id: string) {
 46:   return api.fetch(id);
+47: }
 ```
 
 **💡 Suggestion:**
