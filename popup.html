@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 400px;
+      max-height: 600px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      margin: 0;
+      overflow-y: auto;
+    }
+    
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      color: #24292f;
+    }
+    
+    .description {
+      font-size: 12px;
+      color: #57606a;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    
+    .section {
+      margin-bottom: 16px;
+    }
+    
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #24292f;
+      margin-bottom: 8px;
+    }
+    
+    button {
+      width: 100%;
+      padding: 10px 16px;
+      background: #2da44e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    
+    button:hover {
+      background: #2c974b;
+    }
+    
+    button:active {
+      background: #298e46;
+    }
+    
+    button:disabled {
+      background: #94d3a2;
+      cursor: not-allowed;
+    }
+    
+    button.secondary {
+      background: #f6f8fa;
+      color: #24292f;
+      border: 1px solid #d0d7de;
+    }
+    
+    button.secondary:hover {
+      background: #f3f4f6;
+      border-color: #afb8c1;
+    }
+    
+    button.secondary:active {
+      background: #edeff2;
+    }
+    
+    button.small {
+      padding: 6px 12px;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    
+    #status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+    
+    #status.success {
+      background: #dafbe1;
+      color: #1a7f37;
+      border: 1px solid #a2e8b4;
+    }
+    
+    #status.error {
+      background: #ffebe9;
+      color: #cf222e;
+      border: 1px solid #ff8182;
+    }
+    
+    #status.info {
+      background: #ddf4ff;
+      color: #0969da;
+      border: 1px solid #9cd7ff;
+    }
+    
+    .format-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    #issuesList {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 8px;
+      display: none;
+    }
+    
+    .issue-item {
+      padding: 8px;
+      border-bottom: 1px solid #d0d7de;
+      margin-bottom: 8px;
+    }
+    
+    .issue-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    
+    .issue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    
+    .issue-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #24292f;
+      flex: 1;
+    }
+    
+    .severity-badge {
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    
+    .severity-critical {
+      background: #ffebe9;
+      color: #cf222e;
+    }
+    
+    .severity-warning {
+      background: #fff8c5;
+      color: #9a6700;
+    }
+    
+    .severity-suggestion {
+      background: #ddf4ff;
+      color: #0969da;
+    }
+    
+    .issue-file {
+      font-size: 11px;
+      color: #57606a;
+      font-family: monospace;
+      margin-bottom: 4px;
+    }
+    
+    .copy-single {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: #f6f8fa;
+      color: #24292f;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .copy-single:hover {
+      background: #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 GitHub PR Bot Extractor</h1>
+  <p class="description">Extract Copilot and Bugbot suggestions from this PR page.</p>
+  
+  <div class="section">
+    <button id="extractBtn">Extract All Issues</button>
+  </div>
+  
+  <div class="section" id="formatSection" style="display: none;">
+    <div class="section-title">Copy Format:</div>
+    <div class="format-options">
+      <button class="secondary small" id="copyGrouped">📁 Grouped</button>
+      <button class="secondary small" id="copySummary">📋 Summary</button>
+      <button class="secondary small" id="copyNoInstructions">📄 No Instructions</button>
+      <button class="secondary small" id="copyJSON">{ } JSON</button>
+    </div>
+  </div>
+  
+  <div class="section" id="issuesSection" style="display: none;">
+    <div class="section-title">Individual Issues:</div>
+    <div id="issuesList"></div>
+  </div>
+  
+  <div id="status"></div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
