@@ -1,161 +1,263 @@
-# GitHub PR Bot Extractor
+# GitHub PR Review Extractor
 
-A Chrome extension that extracts Copilot and Bugbot issues/suggestions from GitHub Pull Request pages and copies them to your clipboard with full context.
+A Chrome extension that extracts **all review comments** from GitHub Pull Request pages - including bots (Copilot, Cursor, etc.) and human reviewers - and copies them to your clipboard with full context.
 
 ## Features
 
-- 🤖 Detects **Cursor Bugbot** notes and summaries
-- 🤖 Extracts **GitHub Copilot** suggestions
-- 📝 Captures bot-edited comments
-- 🔍 Finds bot review comments
-- 📋 Formats everything nicely and copies to clipboard
+- 📝 **Extracts ALL review comments** - bots and humans
+- 🤖 Identifies **GitHub Copilot AI** suggestions
+- 🤖 Detects **Cursor Bot** and other bot comments
+- 👤 Includes **human reviewer** comments
+- 🏷️ Labels each comment by author and type
+- 🚫 Filters out outdated/resolved comments
+- 📊 Shows severity levels (Critical, Warning, Suggestion)
+- 📋 Multiple export formats (Grouped, Summary, JSON)
 - ⚡ Simple one-click operation
 
 ## Installation
 
-### From Source (Development)
+### Option 1: Chrome Web Store (Recommended)
+*Coming soon - extension will be published to Chrome Web Store*
 
-1. Clone or download this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" (toggle in top-right corner)
-4. Click "Load unpacked"
-5. Select the `github-pr-bot-extractor` directory
+### Option 2: From Source (Development)
 
-### Adding Icons
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/github-pr-bot-extractor.git
+   cd github-pr-bot-extractor
+   ```
 
-The extension expects three icon files. A simple SVG template is provided in `icons/icon.svg`.
+2. Load in Chrome:
+   - Open Chrome and navigate to `chrome://extensions/`
+   - Enable "Developer mode" (toggle in top-right corner)
+   - Click "Load unpacked"
+   - Select the cloned `github-pr-bot-extractor` directory
 
-To create the required PNG icons:
-1. Open `icons/icon.svg` in a browser or image editor
-2. Export/screenshot it as PNG at these sizes:
-   - Save as `icon16.png` (16x16px)
-   - Save as `icon48.png` (48x48px)  
-   - Save as `icon128.png` (128x128px)
-3. Place all three files in the `icons/` directory
-
-Alternatively, you can use any 128x128 PNG image you like - just resize it to create the smaller versions.
+3. You're ready! The extension icon will appear in your Chrome toolbar.
 
 ## Usage
 
-1. Navigate to any GitHub Pull Request page
-2. Click the extension icon in your browser toolbar
-3. Click "Extract Bot Issues" button
-4. The extracted content will be copied to your clipboard
-5. Paste anywhere you need it!
+1. **Navigate** to any GitHub Pull Request page
+2. **Click** the extension icon in your browser toolbar
+3. **Extract** - Click "Extract All Issues" button
+4. **Review** the results:
+   - See count of all comments found
+   - View breakdown by author type
+   - Check outdated vs current comments
+5. **Filter** (optional):
+   - "Exclude outdated issues" is checked by default
+   - Uncheck to include resolved/outdated comments
+6. **Export** in your preferred format:
+   - **📁 Grouped**: Comments organized by file with instructions
+   - **📋 Summary**: Quick overview by file
+   - **📄 No Instructions**: Grouped format without instructions
+   - **{ } JSON**: Machine-readable JSON format
+7. **Copy** individual comments using the Copy button on each item
+8. **Paste** anywhere you need it - content is automatically copied!
 
 ## What Gets Extracted
 
-The extension looks for:
+The extension extracts **all review comments** from a PR, including:
 
-1. **GitHub Copilot AI Comments**: Review comments from Copilot AI
-   - Includes file path, line numbers, code context
-   - Extracts titles, descriptions, and code suggestions
-   - Captures timestamp information
+1. **Bot Comments**:
+   - GitHub Copilot AI suggestions
+   - Cursor Bot comments
+   - Any other bot-generated reviews
+   
+2. **Human Reviewer Comments**:
+   - All comments from team members
+   - Code review feedback
+   - Discussion threads
 
-2. **Cursor Bot Reviews**: Comments from cursor[bot]
-   - Full review context with file paths
-   - Code diff context showing affected lines
-   - Issue descriptions and suggestions
-
-3. **BugBot Suggestions**: Alternative bot comment structures
-   - Review comments from various bot sources
-   - File-level context when available
+**For each comment, it captures:**
+- Author name and type (Bot/Human)
+- File path and line numbers
+- Code context from diffs
+- Comment content and suggestions
+- Timestamp information
+- Severity classification
+- Outdated/resolved status
 
 ## Output Format
 
-The clipboard content is formatted as Markdown:
+The default export format is Markdown, organized by file:
 
 ```markdown
-# Bot Issues/Suggestions for: [PR Title]
-PR: [PR URL]
-Extracted: [Timestamp]
-Total items: [Count]
+# Code Review Comments - Feature/my-feature
+
+**PR:** https://github.com/org/repo/pull/123
+**Extracted:** 02/01/2026, 11:30:00
+**Total Comments:** 15 (3 outdated excluded, 18 total)
+
+**By Severity:** 🔴 2 Critical, 🟡 5 Warnings, 🔵 8 Suggestions
+**By Author Type:** Human Reviewer (8), GitHub Copilot AI (5), Cursor Bot (2)
 
 ---
 
-## 1. [Issue Title]
+## 📁 `src/components/MyComponent.tsx`
 
-**Type:** [Bot Type]
-**Source:** [Source Type]
-**File:** [File path]
-**Date:** [Comment timestamp]
-**Commit:** [Commit Hash if available]
+3 issues found
 
-**Issue Description:**
-[Full issue description with suggestions]
+### 🔴 Breaking API Change
 
-**Code Context:**
+**Author:** Copilot (GitHub Copilot AI)
+**Severity:** CRITICAL
+
+**Code:**
 ```
-[Line numbers and code that the comment refers to]
+45: export function getData(id: string) {
+46:   return api.fetch(id);
 ```
+
+**💡 Suggestion:**
+The function signature changed from accepting an object to a string...
+
+---
+
+### 🟡 Consider Error Handling
+
+**Author:** John Smith (Human Reviewer)
+**Severity:** WARNING
+
+**💡 Suggestion:**
+Should we add try-catch here for better error handling?
 
 ---
 ```
 
-## Permissions
+## Privacy & Permissions
 
-The extension requires:
-- `activeTab`: To read the current GitHub PR page
-- `clipboardWrite`: To copy extracted content to clipboard
-- `https://github.com/*`: To run only on GitHub pages
+The extension requires minimal permissions:
 
-## Development
+- **`activeTab`**: Read the current GitHub PR page content
+- **`clipboardWrite`**: Copy extracted comments to your clipboard
+- **`https://github.com/*`**: Only runs on GitHub.com pages
+
+**Privacy Promise:**
+- ✅ All processing happens locally in your browser
+- ✅ No data is sent to external servers
+- ✅ No analytics or tracking
+- ✅ No data storage beyond clipboard copy
+- ✅ Open source - verify the code yourself!
+
+## Architecture
 
 ### File Structure
 
 ```
 github-pr-bot-extractor/
-├── manifest.json       # Extension configuration
-├── content.js          # Content script that extracts bot issues
-├── popup.html          # Popup UI
-├── popup.js            # Popup logic and clipboard handling
-├── icon16.png          # Extension icon (16x16)
-├── icon48.png          # Extension icon (48x48)
-├── icon128.png         # Extension icon (128x128)
-└── README.md           # This file
+├── manifest.json           # Extension configuration
+├── content.js              # Content script - extracts review comments
+├── popup.html              # Popup UI structure
+├── popup.js                # Popup logic and event handlers
+├── icons/                  # Extension icons
+│   ├── icon16.png         # 16x16 toolbar icon
+│   ├── icon48.png         # 48x48 management icon
+│   └── icon128.png        # 128x128 store icon
+├── README.md              # This file
+├── CONTRIBUTING.md        # Contribution guidelines
+└── docs/                  # Additional documentation
+    ├── RELEASE_NOTES_*.md
+    └── TESTING_GUIDE.md
 ```
 
 ### How It Works
 
-1. **Content Script** (`content.js`): Runs on GitHub PR pages and contains the extraction logic
-   - Searches DOM for bot-generated content using specific selectors
-   - Extracts text while preserving context and structure
-   - Formats the data into a structured object
+1. **Content Script** (`content.js`):
+   - Runs automatically on GitHub PR pages
+   - Scans DOM for review thread components
+   - Identifies comment authors (bots vs humans)
+   - Extracts comment content, code context, and metadata
+   - Detects outdated/resolved status
+   - Classifies severity based on keywords
+   - Returns structured data to popup
 
-2. **Popup** (`popup.html` + `popup.js`): Provides the user interface
-   - Shows a simple button to trigger extraction
-   - Communicates with content script via Chrome messaging API
-   - Handles clipboard copying
-   - Displays success/error status
+2. **Popup Interface** (`popup.html` + `popup.js`):
+   - Triggered when user clicks extension icon
+   - Sends extraction request to content script
+   - Displays results with filters and options
+   - Handles multiple export formats
+   - Manages clipboard operations
+   - Shows real-time statistics
 
-### Customization
-
-You can modify the extraction patterns in `content.js`:
-- Add new bot types to detect
-- Customize the output format in `formatIssuesForClipboard()`
-- Add additional context extraction (like file names, line numbers, etc.)
+3. **Communication Flow**:
+   ```
+   User clicks icon → Popup opens → Sends message to content.js
+   → content.js extracts comments → Returns data to popup
+   → Popup formats and displays → Copies to clipboard
+   ```
 
 ## Troubleshooting
 
-**"Please navigate to a GitHub Pull Request page"**
-- Make sure you're on a URL matching `https://github.com/*/pull/*`
+### Common Issues
 
-**No issues found**
-- The PR may not have any bot-generated content
-- The bots may use different HTML structures than currently detected
-- Check the browser console for any errors
+**"Please navigate to a GitHub Pull Request page"**
+- Ensure you're on a URL matching `https://github.com/*/pull/*`
+- Refresh the page and try again
+- Check that the extension is enabled
+
+**"No review comments found on this PR"**
+- The PR may not have any review comments yet
+- Comments might be on the "Conversation" tab instead of "Files changed"
+- Try refreshing the PR page
 
 **Copy to clipboard fails**
-- Some browsers require explicit clipboard permissions
+- Grant clipboard permissions when prompted
 - Try clicking the extension icon again
+- Check Chrome's site permissions for github.com
+
+**Comments missing or incomplete**
+- GitHub may have updated their HTML structure
+- Check browser console (F12) for errors
+- Report an issue on GitHub with details
+
+**Outdated filter not working**
+- Ensure you're on the latest version
+- Try unchecking and rechecking the filter
+- Reload the extension in `chrome://extensions/`
+
+### Getting Help
+
+- Check [existing issues](https://github.com/yourusername/github-pr-bot-extractor/issues)
+- Open a new issue with:
+  - Extension version
+  - Chrome version
+  - PR URL (if public)
+  - Browser console errors
+  - Screenshots if applicable
+
+## Changelog
+
+### Version 3.0.0 - Major Update
+- 🎉 **Now extracts ALL review comments, not just bots!**
+- 👤 Identifies and labels human reviewers
+- 🤖 Distinguishes between different bot types (Copilot, Cursor, etc.)
+- 🏷️ Shows author name and type for each comment
+- 📊 Breakdown by author type in summary
+- 📝 Renamed to "GitHub PR Review Extractor"
+
+### Version 2.1.1
+- ✅ Fixed Cursor bot detection for newer GitHub UI structure
+- ✅ Checkbox now defaults to "Exclude outdated issues" checked
+
+### Version 2.1.0
+- ✅ Added outdated issue detection and filtering
+- ✅ Shows outdated status in issue labels
+- ✅ Configurable filter to exclude/include outdated issues
+- ✅ Stats showing how many issues are outdated
+
+### Version 2.0.0
+- Added multiple export formats
+- Severity-based classification
+- Individual issue copying
+- Improved UI with issue preview
 
 ## Future Enhancements
 
 - [ ] Add support for more bot types
 - [ ] Allow custom extraction patterns
-- [ ] Export to different formats (JSON, CSV)
 - [ ] Batch extraction from multiple PRs
-- [ ] Filtering options
+- [ ] Filter by severity level
 
 ## License
 
