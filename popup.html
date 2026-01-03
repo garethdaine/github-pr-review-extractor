@@ -3,6 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f6f8fa;
+      --bg-tertiary: #f3f4f6;
+      --text-primary: #24292f;
+      --text-secondary: #57606a;
+      --border-color: #d0d7de;
+      --border-hover: #afb8c1;
+      --button-primary-bg: #2da44e;
+      --button-primary-hover: #2c974b;
+      --button-primary-active: #298e46;
+      --button-primary-disabled: #94d3a2;
+      --button-secondary-bg: #f6f8fa;
+      --button-secondary-hover: #f3f4f6;
+      --button-secondary-active: #edeff2;
+      --status-success-bg: #dafbe1;
+      --status-success-text: #1a7f37;
+      --status-success-border: #a2e8b4;
+      --status-error-bg: #ffebe9;
+      --status-error-text: #cf222e;
+      --status-error-border: #ff8182;
+      --status-info-bg: #ddf4ff;
+      --status-info-text: #0969da;
+      --status-info-border: #9cd7ff;
+      --severity-critical-bg: #ffebe9;
+      --severity-critical-text: #cf222e;
+      --severity-warning-bg: #fff8c5;
+      --severity-warning-text: #9a6700;
+      --severity-suggestion-bg: #ddf4ff;
+      --severity-suggestion-text: #0969da;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --border-color: #30363d;
+      --border-hover: #484f58;
+      --button-primary-bg: #238636;
+      --button-primary-hover: #2ea043;
+      --button-primary-active: #2f8132;
+      --button-primary-disabled: #1f5f2f;
+      --button-secondary-bg: #21262d;
+      --button-secondary-hover: #30363d;
+      --button-secondary-active: #484f58;
+      --status-success-bg: rgba(46, 160, 67, 0.1);
+      --status-success-text: #3fb950;
+      --status-success-border: rgba(46, 160, 67, 0.4);
+      --status-error-bg: rgba(248, 81, 73, 0.1);
+      --status-error-text: #f85149;
+      --status-error-border: rgba(248, 81, 73, 0.4);
+      --status-info-bg: rgba(56, 139, 253, 0.1);
+      --status-info-text: #58a6ff;
+      --status-info-border: rgba(56, 139, 253, 0.4);
+      --severity-critical-bg: rgba(248, 81, 73, 0.15);
+      --severity-critical-text: #f85149;
+      --severity-warning-bg: rgba(187, 128, 9, 0.15);
+      --severity-warning-text: #d29922;
+      --severity-suggestion-bg: rgba(56, 139, 253, 0.15);
+      --severity-suggestion-text: #58a6ff;
+    }
+
     body {
       width: 400px;
       max-height: 600px;
@@ -10,37 +74,39 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
       margin: 0;
       overflow-y: auto;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
     }
-    
+
     h1 {
       font-size: 16px;
       font-weight: 600;
       margin: 0 0 8px 0;
-      color: #24292f;
+      color: var(--text-primary);
     }
-    
+
     .description {
       font-size: 12px;
-      color: #57606a;
+      color: var(--text-secondary);
       margin-bottom: 12px;
       line-height: 1.5;
     }
-    
+
     .section {
       margin-bottom: 16px;
     }
-    
+
     .section-title {
       font-size: 13px;
       font-weight: 600;
-      color: #24292f;
+      color: var(--text-primary);
       margin-bottom: 8px;
     }
-    
+
     button {
       width: 100%;
       padding: 10px 16px;
-      background: #2da44e;
+      background: var(--button-primary-bg);
       color: white;
       border: none;
       border-radius: 6px;
@@ -49,41 +115,41 @@
       cursor: pointer;
       margin-bottom: 8px;
     }
-    
+
     button:hover {
-      background: #2c974b;
+      background: var(--button-primary-hover);
     }
-    
+
     button:active {
-      background: #298e46;
+      background: var(--button-primary-active);
     }
-    
+
     button:disabled {
-      background: #94d3a2;
+      background: var(--button-primary-disabled);
       cursor: not-allowed;
     }
-    
+
     button.secondary {
-      background: #f6f8fa;
-      color: #24292f;
-      border: 1px solid #d0d7de;
+      background: var(--button-secondary-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
     }
-    
+
     button.secondary:hover {
-      background: #f3f4f6;
-      border-color: #afb8c1;
+      background: var(--button-secondary-hover);
+      border-color: var(--border-hover);
     }
-    
+
     button.secondary:active {
-      background: #edeff2;
+      background: var(--button-secondary-active);
     }
-    
+
     button.small {
       padding: 6px 12px;
       font-size: 12px;
       margin-bottom: 4px;
     }
-    
+
     #status {
       padding: 8px 12px;
       border-radius: 6px;
@@ -91,66 +157,67 @@
       margin-top: 8px;
       display: none;
     }
-    
+
     #status.success {
-      background: #dafbe1;
-      color: #1a7f37;
-      border: 1px solid #a2e8b4;
+      background: var(--status-success-bg);
+      color: var(--status-success-text);
+      border: 1px solid var(--status-success-border);
     }
-    
+
     #status.error {
-      background: #ffebe9;
-      color: #cf222e;
-      border: 1px solid #ff8182;
+      background: var(--status-error-bg);
+      color: var(--status-error-text);
+      border: 1px solid var(--status-error-border);
     }
-    
+
     #status.info {
-      background: #ddf4ff;
-      color: #0969da;
-      border: 1px solid #9cd7ff;
+      background: var(--status-info-bg);
+      color: var(--status-info-text);
+      border: 1px solid var(--status-info-border);
     }
-    
+
     .format-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-bottom: 12px;
     }
-    
+
     #issuesList {
       max-height: 300px;
       overflow-y: auto;
-      border: 1px solid #d0d7de;
+      border: 1px solid var(--border-color);
       border-radius: 6px;
       padding: 8px;
       display: none;
+      background-color: var(--bg-secondary);
     }
-    
+
     .issue-item {
       padding: 8px;
-      border-bottom: 1px solid #d0d7de;
+      border-bottom: 1px solid var(--border-color);
       margin-bottom: 8px;
     }
-    
+
     .issue-item:last-child {
       border-bottom: none;
       margin-bottom: 0;
     }
-    
+
     .issue-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 4px;
     }
-    
+
     .issue-title {
       font-size: 12px;
       font-weight: 600;
-      color: #24292f;
+      color: var(--text-primary);
       flex: 1;
     }
-    
+
     .severity-badge {
       padding: 2px 6px;
       border-radius: 12px;
@@ -158,78 +225,215 @@
       font-weight: 600;
       margin-right: 8px;
     }
-    
+
     .severity-critical {
-      background: #ffebe9;
-      color: #cf222e;
+      background: var(--severity-critical-bg);
+      color: var(--severity-critical-text);
     }
-    
+
     .severity-warning {
-      background: #fff8c5;
-      color: #9a6700;
+      background: var(--severity-warning-bg);
+      color: var(--severity-warning-text);
     }
-    
+
     .severity-suggestion {
-      background: #ddf4ff;
-      color: #0969da;
+      background: var(--severity-suggestion-bg);
+      color: var(--severity-suggestion-text);
     }
-    
+
     .issue-file {
       font-size: 11px;
-      color: #57606a;
+      color: var(--text-secondary);
       font-family: monospace;
       margin-bottom: 4px;
     }
-    
+
     .copy-single {
       padding: 4px 8px;
       font-size: 11px;
-      background: #f6f8fa;
-      color: #24292f;
-      border: 1px solid #d0d7de;
+      background: var(--button-secondary-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       cursor: pointer;
     }
-    
+
     .copy-single:hover {
-      background: #f3f4f6;
+      background: var(--button-secondary-hover);
+    }
+
+    select, input[type="text"] {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    select:hover, input[type="text"]:hover {
+      border-color: var(--border-hover);
+    }
+
+    select:focus, input[type="text"]:focus {
+      outline: 2px solid #0969da;
+      outline-offset: 2px;
+    }
+
+    button:focus {
+      outline: 2px solid #0969da;
+      outline-offset: 2px;
+    }
+
+    label {
+      color: var(--text-primary);
     }
   </style>
 </head>
 <body>
+  <div style="position: absolute; top: 8px; right: 8px;">
+    <button id="themeToggle" class="secondary small" style="width: auto; padding: 4px 8px; font-size: 11px;" title="Toggle dark mode">🌓</button>
+  </div>
   <h1>📝 GitHub PR Review Extractor</h1>
   <p class="description">Extract all review comments from this PR (bots and humans).</p>
-  
+
   <div class="section">
     <button id="extractBtn">Extract All Issues</button>
+    <button id="generateReviewBtn" class="secondary" style="margin-top: 4px;">🤖 Generate AI Review</button>
+    <button id="previewPostBtn" class="secondary" style="margin-top: 4px; display: none;">👁️ Preview & Post to GitHub</button>
+    <button id="postToGitHubBtn" class="secondary" style="margin-top: 4px; display: none;">📤 Post AI Review to GitHub</button>
   </div>
-  
-  <div class="section" id="filterSection" style="display: none;">
-    <div class="section-title">Filters:</div>
-    <label style="display: flex; align-items: center; font-size: 13px; color: #24292f; cursor: pointer;">
-      <input type="checkbox" id="excludeOutdated" style="margin-right: 8px;" checked>
-      Exclude outdated issues
-    </label>
-    <div id="filterStats" style="font-size: 11px; color: #57606a; margin-top: 4px;"></div>
-  </div>
-  
-  <div class="section" id="formatSection" style="display: none;">
-    <div class="section-title">Copy Format:</div>
-    <div class="format-options">
-      <button class="secondary small" id="copyGrouped">📁 Grouped</button>
-      <button class="secondary small" id="copySummary">📋 Summary</button>
-      <button class="secondary small" id="copyNoInstructions">📄 No Instructions</button>
-      <button class="secondary small" id="copyJSON">{ } JSON</button>
+
+  <!-- Preview Modal -->
+  <div id="previewModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000; overflow-y: auto;" role="dialog" aria-labelledby="previewModalTitle" aria-modal="true">
+    <div style="background: var(--bg-primary); margin: 20px auto; max-width: 700px; border-radius: 8px; padding: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 id="previewModalTitle" style="margin: 0; color: var(--text-primary);">Preview Review Comments</h2>
+        <button id="closePreviewModal" aria-label="Close preview modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); padding: 0; width: 32px; height: 32px;">&times;</button>
+      </div>
+      <div id="previewContent" style="max-height: 500px; overflow-y: auto; margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color);">
+        <!-- Preview content will be inserted here -->
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="cancelPreview" class="secondary" style="width: auto;">Cancel</button>
+        <button id="confirmPostPreview" style="width: auto;">Post to GitHub</button>
+      </div>
     </div>
   </div>
-  
-  <div class="section" id="issuesSection" style="display: none;">
-    <div class="section-title">Individual Issues:</div>
-    <div id="issuesList"></div>
+
+  <div class="section" id="reviewProgressSection" style="display: none;">
+    <div class="section-title">AI Review Progress:</div>
+    <div id="reviewProgress" style="font-size: 12px; color: #57606a; padding: 8px; background: #f6f8fa; border-radius: 6px; margin-bottom: 8px;">
+      Initializing...
+    </div>
+    <div id="progressBar" style="width: 100%; height: 4px; background: #d0d7de; border-radius: 2px; overflow: hidden;">
+      <div id="progressFill" style="width: 0%; height: 100%; background: #2da44e; transition: width 0.3s;"></div>
+    </div>
   </div>
-  
+
+  <div class="section" id="filterSection" style="display: none;">
+    <div class="section-title">Filters:</div>
+
+    <div style="margin-bottom: 8px;">
+      <label style="display: flex; align-items: center; font-size: 13px; color: #24292f; cursor: pointer;">
+        <input type="checkbox" id="excludeOutdated" style="margin-right: 8px;" checked>
+        Exclude outdated issues
+      </label>
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label for="severityFilter" style="font-size: 12px; color: var(--text-primary); display: block; margin-bottom: 4px;">Severity:</label>
+      <select id="severityFilter" aria-label="Filter by severity level" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+        <option value="">All severities</option>
+        <option value="critical">Critical only</option>
+        <option value="warning">Warning only</option>
+        <option value="suggestion">Suggestion only</option>
+        <option value="critical,warning">Critical & Warning</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label for="authorTypeFilter" style="font-size: 12px; color: var(--text-primary); display: block; margin-bottom: 4px;">Author Type:</label>
+      <select id="authorTypeFilter" aria-label="Filter by author type" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+        <option value="">All authors</option>
+        <option value="bot">Bots only</option>
+        <option value="human">Humans only</option>
+        <option value="copilot">Copilot only</option>
+        <option value="cursor">Cursor only</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label for="filePathFilter" style="font-size: 12px; color: var(--text-primary); display: block; margin-bottom: 4px;">File Path (regex):</label>
+      <input type="text" id="filePathFilter" placeholder="e.g., .ts$ or src/" aria-label="Filter by file path using regex pattern" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary);">
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label for="searchQuery" style="font-size: 12px; color: var(--text-primary); display: block; margin-bottom: 4px;">Search:</label>
+      <input type="text" id="searchQuery" placeholder="Search in titles, content, files..." aria-label="Search issues by text content" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; box-sizing: border-box; background: var(--bg-primary); color: var(--text-primary);">
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label for="filterPreset" style="font-size: 12px; color: var(--text-primary); display: block; margin-bottom: 4px;">Presets:</label>
+      <select id="filterPreset" aria-label="Apply a filter preset" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary);">
+        <option value="">Select a preset...</option>
+        <option value="critical-only">Critical Only</option>
+        <option value="warnings-only">Warnings Only</option>
+        <option value="suggestions-only">Suggestions Only</option>
+        <option value="bots-only">Bots Only</option>
+        <option value="humans-only">Humans Only</option>
+        <option value="copilot-only">Copilot Only</option>
+        <option value="cursor-only">Cursor Only</option>
+        <option value="critical-and-warnings">Critical & Warnings</option>
+        <option value="active-only">Active Issues</option>
+      </select>
+    </div>
+
+    <button id="clearFilters" class="secondary small" style="width: 100%; margin-top: 4px;" aria-label="Clear all active filters">Clear All Filters</button>
+
+    <div id="filterStats" style="font-size: 11px; color: #57606a; margin-top: 8px;"></div>
+  </div>
+
+  <div class="section" id="formatSection" style="display: none;">
+    <div class="section-title">Export Format:</div>
+    <div class="format-options" role="group" aria-label="Export format options">
+      <button class="secondary small" id="copyGrouped" aria-label="Copy issues in grouped format with instructions">📁 Grouped</button>
+      <button class="secondary small" id="copySummary" aria-label="Copy issues in summary format">📋 Summary</button>
+      <button class="secondary small" id="copyNoInstructions" aria-label="Copy issues in grouped format without instructions">📄 No Instructions</button>
+      <button class="secondary small" id="copyJSON" aria-label="Copy issues in JSON format"> { } JSON</button>
+      <button class="secondary small" id="copyHTML" aria-label="Copy issues in HTML format">🌐 HTML</button>
+      <button class="secondary small" id="copyCSV" aria-label="Copy issues in CSV format">📊 CSV</button>
+      <button class="secondary small" id="exportPDF" aria-label="Export issues as PDF">📄 PDF</button>
+    </div>
+  </div>
+
+  <div class="section" id="issuesSection" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div class="section-title">Individual Issues:</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="sortBy" style="font-size: 11px; color: var(--text-secondary);">Sort:</label>
+        <select id="sortBy" aria-label="Sort issues by" style="padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; background: var(--bg-primary); color: var(--text-primary);">
+          <option value="severity-desc">Severity (Critical first)</option>
+          <option value="severity-asc">Severity (Suggestion first)</option>
+          <option value="file-asc">File Path (A-Z)</option>
+          <option value="file-desc">File Path (Z-A)</option>
+          <option value="author-asc">Author (A-Z)</option>
+          <option value="author-desc">Author (Z-A)</option>
+          <option value="date-desc">Date (Newest first)</option>
+          <option value="date-asc">Date (Oldest first)</option>
+          <option value="title-asc">Title (A-Z)</option>
+          <option value="title-desc">Title (Z-A)</option>
+        </select>
+      </div>
+    </div>
+    <div id="issuesList" role="list" aria-label="List of extracted review issues"></div>
+  </div>
+
   <div id="status"></div>
-  
+
+  <script src="filter-presets.js"></script>
+  <script src="sorters.js"></script>
+  <script src="review-history.js"></script>
+  <script src="llm-client.js"></script>
+  <script src="github-api.js"></script>
+  <script src="review-engine.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

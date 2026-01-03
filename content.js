@@ -3,12 +3,12 @@
 function extractBotIssues() {
   const issues = [];
   const seenComments = new Set(); // Track unique comments by content hash
-  
+
   // Helper to create a unique ID for deduplication
   function getCommentId(filePath, content) {
     return `${filePath}:${content.substring(0, 100)}`;
   }
-  
+
   // Helper to clean text content from UI noise
   function cleanText(text) {
     return text
@@ -24,47 +24,47 @@ function extractBotIssues() {
       .replace(/\s+/g, ' ')
       .trim();
   }
-  
+
   // Extract all review comments from review threads
   const reviewThreads = document.querySelectorAll('.review-thread-component');
-  
+
   reviewThreads.forEach((thread) => {
     // Check if thread is outdated or resolved
     const hasOutdatedLabel = thread.querySelector('span[title="Label: Outdated"]') !== null;
     const labelText = thread.querySelector('.Label')?.textContent?.trim();
     const isLabeledOutdated = labelText === 'Outdated';
     const hasResolvedAttribute = thread.hasAttribute('data-resolved') && thread.getAttribute('data-resolved') === 'true';
-    
+
     const isOutdated = hasOutdatedLabel || isLabeledOutdated || hasResolvedAttribute;
-    
+
     const commentGroups = thread.querySelectorAll('.timeline-comment-group');
-    
+
     commentGroups.forEach((group) => {
       // Get author information
       const authorStrong = group.querySelector('strong');
       if (!authorStrong) return;
-      
+
       const authorLink = authorStrong.querySelector('a');
       if (!authorLink) return;
-      
+
       const authorText = authorLink.textContent.trim();
       const authorTextLower = authorText.toLowerCase();
-      
+
       // Look for Label - it might be inside strong or a sibling
-      const labelSpan = authorStrong.querySelector('.Label') || 
+      const labelSpan = authorStrong.querySelector('.Label') ||
                         authorLink.parentElement?.querySelector('.Label');
       const labelText = labelSpan ? labelSpan.textContent.toLowerCase() : '';
-      
+
       // Determine comment type/author type
       let commentType = 'Human Reviewer';
       let authorType = authorText; // Default to actual author name
       let source = 'Code Review';
-      
+
       const isCopilot = authorTextLower.includes('copilot') || labelText.includes('ai');
-      const isCursorBot = (authorTextLower.includes('cursor') || authorLink.href?.includes('/apps/cursor')) && 
+      const isCursorBot = (authorTextLower.includes('cursor') || authorLink.href?.includes('/apps/cursor')) &&
                          (labelText.includes('bot') || labelSpan !== null);
       const isBot = labelText.includes('bot') && !isCopilot && !isCursorBot;
-      
+
       if (isCopilot) {
         commentType = 'GitHub Copilot AI';
         authorType = 'Copilot';
@@ -82,11 +82,11 @@ function extractBotIssues() {
         authorType = authorText;
         source = 'Code Review';
       }
-      
+
       // Extract file context
       const fileLink = thread.querySelector('a.text-mono.text-small');
       const filePath = fileLink ? fileLink.textContent.trim() : 'Unknown file';
-      
+
       // Extract code context (the actual code being commented on)
       const codeLines = [];
       const diffTable = thread.querySelector('.diff-table');
@@ -104,14 +104,14 @@ function extractBotIssues() {
           }
         });
       }
-      
+
       // Extract comment content (clone to avoid modifying DOM)
       const commentBody = group.querySelector('.comment-body.markdown-body');
       if (!commentBody) return;
-      
+
       // Clone the comment body to clean it
       const commentClone = commentBody.cloneNode(true);
-      
+
       // Remove unwanted elements
       commentClone.querySelectorAll('.suggested-change-form-container').forEach(el => el.remove());
       commentClone.querySelectorAll('.js-suggested-changes-template').forEach(el => el.remove());
@@ -119,32 +119,32 @@ function extractBotIssues() {
       commentClone.querySelectorAll('.copilot-code-review-feedback').forEach(el => el.remove());
       commentClone.querySelectorAll('sup').forEach(el => el.remove());
       commentClone.querySelectorAll('.text-small.color-fg-muted').forEach(el => el.remove());
-      
+
       // Get title
-      const title = commentClone.querySelector('h1, h2, h3')?.textContent.trim() || 
+      const title = commentClone.querySelector('h1, h2, h3')?.textContent.trim() ||
                    `${authorType} Comment`;
-      
+
       // Get main content paragraphs
       const paragraphs = Array.from(commentClone.querySelectorAll('p'));
       const contentParts = paragraphs
         .map(p => cleanText(p.textContent))
         .filter(text => text.length > 10); // Filter out very short text
-      
+
       const content = contentParts.join('\n\n');
       if (!content) return;
-      
+
       // Check for duplicates
       const commentId = getCommentId(filePath, content);
       if (seenComments.has(commentId)) return;
       seenComments.add(commentId);
-      
+
       // Get timestamp
       const timestamp = group.querySelector('relative-time')?.getAttribute('datetime') || '';
-      
+
       // Determine severity based on keywords
       const contentLower = content.toLowerCase();
       let severity = 'suggestion';
-      if (contentLower.includes('breaking change') || 
+      if (contentLower.includes('breaking change') ||
           contentLower.includes('breaking api') ||
           contentLower.includes('regression') ||
           contentLower.includes('security') ||
@@ -157,7 +157,7 @@ function extractBotIssues() {
                  contentLower.includes('degrades ux')) {
         severity = 'warning';
       }
-      
+
       issues.push({
         type: commentType,
         author: authorType,
@@ -174,7 +174,7 @@ function extractBotIssues() {
       });
     });
   });
-  
+
   return issues;
 }
 
@@ -204,19 +204,78 @@ function groupIssuesByFile(issues) {
 }
 
 // Filter issues based on criteria
+// Note: Enhanced filtering logic moved to filters.js
+// This function is kept for backward compatibility but delegates to filters.js if available
 function filterIssues(issues, options = {}) {
+  // Try to use enhanced filterIssues from filters.js if available
+  if (typeof window !== 'undefined' && window.filterIssuesEnhanced) {
+    return window.filterIssuesEnhanced(issues, options);
+  }
+
+  // Fallback to basic filtering if filters.js not loaded
   let filtered = [...issues];
-  
+
   // Filter out outdated issues if requested
   if (options.excludeOutdated) {
     filtered = filtered.filter(issue => !issue.outdated);
   }
-  
+
   // Filter by severity if specified
   if (options.severity) {
-    filtered = filtered.filter(issue => issue.severity === options.severity);
+    if (Array.isArray(options.severity)) {
+      filtered = filtered.filter(issue => options.severity.includes(issue.severity));
+    } else {
+      filtered = filtered.filter(issue => issue.severity === options.severity);
+    }
   }
-  
+
+  // Filter by author type
+  if (options.authorType) {
+    if (options.authorType === 'bot') {
+      filtered = filtered.filter(issue => issue.isBot === true);
+    } else if (options.authorType === 'human') {
+      filtered = filtered.filter(issue => issue.isHuman === true);
+    } else if (options.authorType === 'copilot') {
+      filtered = filtered.filter(issue => issue.type === 'GitHub Copilot AI');
+    } else if (options.authorType === 'cursor') {
+      filtered = filtered.filter(issue => issue.type === 'Cursor Bot');
+    }
+  }
+
+  // Filter by specific authors
+  if (options.authors && Array.isArray(options.authors) && options.authors.length > 0) {
+    filtered = filtered.filter(issue => options.authors.includes(issue.author));
+  }
+
+  // Filter by file paths (regex patterns)
+  if (options.filePaths && Array.isArray(options.filePaths) && options.filePaths.length > 0) {
+    filtered = filtered.filter(issue => {
+      return options.filePaths.some(pattern => {
+        try {
+          const regex = new RegExp(pattern);
+          return regex.test(issue.filePath);
+        } catch (e) {
+          return issue.filePath.includes(pattern);
+        }
+      });
+    });
+  }
+
+  // Search query
+  if (options.searchQuery && options.searchQuery.trim()) {
+    const query = options.searchQuery.toLowerCase().trim();
+    filtered = filtered.filter(issue => {
+      const searchableText = [
+        issue.title || '',
+        issue.content || '',
+        issue.filePath || '',
+        issue.author || ''
+      ].join(' ').toLowerCase();
+
+      return searchableText.includes(query);
+    });
+  }
+
   return filtered;
 }
 
@@ -224,29 +283,29 @@ function filterIssues(issues, options = {}) {
 function formatIssuesGroupedByFile(issues, includeInstructions = true, options = {}) {
   // Apply filters if provided
   const filteredIssues = filterIssues(issues, options);
-  
+
   if (filteredIssues.length === 0) {
     return 'No bot-generated issues or suggestions found on this PR.';
   }
-  
+
   const prUrl = window.location.href;
   const prTitle = document.querySelector('.js-issue-title')?.textContent.trim() || 'PR';
   const grouped = groupIssuesByFile(filteredIssues);
-  
+
   // Count by severity
   const severityCounts = { critical: 0, warning: 0, suggestion: 0 };
   filteredIssues.forEach(issue => severityCounts[issue.severity]++);
-  
+
   // Count by author type
   const authorCounts = {};
   filteredIssues.forEach(issue => {
     authorCounts[issue.type] = (authorCounts[issue.type] || 0) + 1;
   });
-  
+
   // Count outdated
   const outdatedCount = issues.filter(i => i.outdated).length;
   const totalOriginal = issues.length;
-  
+
   let output = `# Code Review Comments - ${prTitle}\n\n`;
   output += `**PR:** ${prUrl}\n`;
   output += `**Extracted:** ${new Date().toLocaleString()}\n`;
@@ -255,7 +314,7 @@ function formatIssuesGroupedByFile(issues, includeInstructions = true, options =
     output += ` (${outdatedCount} outdated excluded, ${totalOriginal} total)`;
   }
   output += `\n\n**By Severity:** 🔴 ${severityCounts.critical} Critical, 🟡 ${severityCounts.warning} Warnings, 🔵 ${severityCounts.suggestion} Suggestions\n`;
-  
+
   // Show author breakdown
   if (Object.keys(authorCounts).length > 0) {
     output += `**By Author Type:** `;
@@ -265,40 +324,40 @@ function formatIssuesGroupedByFile(issues, includeInstructions = true, options =
       .join(', ');
     output += `${authorBreakdown}\n`;
   }
-  
+
   output += '\n---\n\n';
-  
+
   // Sort files by number of issues (descending)
-  const sortedFiles = Object.keys(grouped).sort((a, b) => 
+  const sortedFiles = Object.keys(grouped).sort((a, b) =>
     grouped[b].length - grouped[a].length
   );
-  
+
   sortedFiles.forEach(filePath => {
     const fileIssues = grouped[filePath];
     output += `## 📁 \`${filePath}\`\n\n`;
     output += `${fileIssues.length} issue${fileIssues.length !== 1 ? 's' : ''} found\n\n`;
-    
+
     fileIssues.forEach((issue, index) => {
       const severityInfo = getSeverityInfo(issue.severity);
       const outdatedLabel = issue.outdated ? ' ~~(Outdated)~~' : '';
       output += `### ${severityInfo.emoji} ${issue.title}${outdatedLabel}\n\n`;
       output += `**Author:** ${issue.author} (${issue.type})\n`;
       output += `**Severity:** ${severityInfo.label}\n\n`;
-      
+
       if (issue.codeContext) {
         output += `**Code:**\n\`\`\`\n${issue.codeContext}\n\`\`\`\n\n`;
       }
-      
+
       output += `**💡 Suggestion:**\n${issue.content}\n\n`;
-      
+
       if (index < fileIssues.length - 1) {
         output += '---\n\n';
       }
     });
-    
+
     output += '\n---\n\n';
   });
-  
+
   if (includeInstructions) {
     output += `\n## Instructions for Cursor AI\n\n`;
     output += `Please review these ${filteredIssues.length} code review suggestions grouped by file. `;
@@ -312,25 +371,25 @@ function formatIssuesGroupedByFile(issues, includeInstructions = true, options =
     output += `3. Apply the fix if it's valid\n`;
     output += `4. Ensure the fix doesn't break existing functionality\n`;
   }
-  
+
   return output;
 }
 
 // Format single issue for individual copying
 function formatSingleIssue(issue, index) {
   const severityInfo = getSeverityInfo(issue.severity);
-  
+
   let output = `## ${severityInfo.emoji} ${issue.title}\n\n`;
   output += `**Author:** ${issue.author} (${issue.type})\n`;
   output += `**File:** \`${issue.filePath}\`\n`;
   output += `**Severity:** ${severityInfo.label}\n\n`;
-  
+
   if (issue.codeContext) {
     output += `**Code:**\n\`\`\`\n${issue.codeContext}\n\`\`\`\n\n`;
   }
-  
+
   output += `**💡 Suggestion:**\n${issue.content}\n`;
-  
+
   return output;
 }
 
@@ -339,10 +398,10 @@ function formatIssuesSummary(issues) {
   if (issues.length === 0) {
     return 'No issues found.';
   }
-  
+
   const grouped = groupIssuesByFile(issues);
   let output = '';
-  
+
   Object.keys(grouped).sort().forEach(filePath => {
     output += `${filePath}:\n`;
     grouped[filePath].forEach(issue => {
@@ -351,7 +410,7 @@ function formatIssuesSummary(issues) {
     });
     output += '\n';
   });
-  
+
   return output;
 }
 
@@ -359,7 +418,7 @@ function formatIssuesSummary(issues) {
 function formatIssuesAsJSON(issues) {
   const prUrl = window.location.href;
   const prTitle = document.querySelector('.js-issue-title')?.textContent.trim() || 'PR';
-  
+
   return JSON.stringify({
     pr: {
       title: prTitle,
@@ -376,6 +435,130 @@ function formatIssuesAsJSON(issues) {
   }, null, 2);
 }
 
+// Export as HTML
+function formatIssuesAsHTML(issues) {
+  const prUrl = window.location.href;
+  const prTitle = document.querySelector('.js-issue-title')?.textContent.trim() || 'PR';
+  const grouped = groupIssuesByFile(issues);
+
+  const severityCounts = { critical: 0, warning: 0, suggestion: 0 };
+  issues.forEach(issue => severityCounts[issue.severity]++);
+
+  let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Comments - ${escapeHtml(prTitle)}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #24292f;
+      background: #ffffff;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 { color: #24292f; border-bottom: 1px solid #d0d7de; padding-bottom: 10px; }
+    h2 { color: #0969da; margin-top: 30px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    h3 { color: #24292f; margin-top: 20px; }
+    .meta { color: #57606a; font-size: 14px; margin-bottom: 20px; }
+    .summary { background: #f6f8fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    .issue { margin: 20px 0; padding: 15px; border-left: 4px solid #d0d7de; background: #f6f8fa; border-radius: 4px; }
+    .issue.critical { border-left-color: #cf222e; }
+    .issue.warning { border-left-color: #9a6700; }
+    .issue.suggestion { border-left-color: #0969da; }
+    .severity-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 8px; }
+    .severity-critical { background: #ffebe9; color: #cf222e; }
+    .severity-warning { background: #fff8c5; color: #9a6700; }
+    .severity-suggestion { background: #ddf4ff; color: #0969da; }
+    code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', Monaco, monospace; font-size: 85%; }
+    pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; border: 1px solid #d0d7de; }
+    .author { color: #57606a; font-size: 13px; margin-top: 8px; }
+    @media print {
+      body { padding: 0; }
+      .issue { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Code Review Comments - ${escapeHtml(prTitle)}</h1>
+  <div class="meta">
+    <strong>PR:</strong> <a href="${prUrl}">${escapeHtml(prUrl)}</a><br>
+    <strong>Extracted:</strong> ${new Date().toLocaleString()}<br>
+    <strong>Total Issues:</strong> ${issues.length}
+  </div>
+  <div class="summary">
+    <strong>By Severity:</strong> 🔴 ${severityCounts.critical} Critical, 🟡 ${severityCounts.warning} Warnings, 🔵 ${severityCounts.suggestion} Suggestions
+  </div>
+`;
+
+  const sortedFiles = Object.keys(grouped).sort((a, b) => grouped[b].length - grouped[a].length);
+
+  sortedFiles.forEach(filePath => {
+    const fileIssues = grouped[filePath];
+    html += `\n  <h2>📁 <code>${escapeHtml(filePath)}</code></h2>\n`;
+    html += `  <p>${fileIssues.length} issue${fileIssues.length !== 1 ? 's' : ''} found</p>\n\n`;
+
+    fileIssues.forEach((issue, index) => {
+      const severityInfo = getSeverityInfo(issue.severity);
+      html += `  <div class="issue ${issue.severity}">\n`;
+      html += `    <h3><span class="severity-badge severity-${issue.severity}">${severityInfo.emoji} ${severityInfo.label}</span>${escapeHtml(issue.title)}</h3>\n`;
+      html += `    <div class="author"><strong>Author:</strong> ${escapeHtml(issue.author)} (${escapeHtml(issue.type)})</div>\n`;
+
+      if (issue.codeContext) {
+        html += `    <p><strong>Code:</strong></p>\n    <pre><code>${escapeHtml(issue.codeContext)}</code></pre>\n`;
+      }
+
+      html += `    <p><strong>💡 Suggestion:</strong></p>\n    <p>${escapeHtml(issue.content).replace(/\n/g, '<br>')}</p>\n`;
+      html += `  </div>\n\n`;
+    });
+  });
+
+  html += `</body>\n</html>`;
+  return html;
+}
+
+// Export as CSV
+function formatIssuesAsCSV(issues) {
+  const headers = ['File Path', 'Title', 'Severity', 'Author', 'Type', 'Content', 'Code Context', 'Timestamp', 'Outdated'];
+  const rows = issues.map(issue => [
+    issue.filePath || '',
+    issue.title || '',
+    issue.severity || '',
+    issue.author || '',
+    issue.type || '',
+    (issue.content || '').replace(/"/g, '""').replace(/\n/g, ' '),
+    (issue.codeContext || '').replace(/"/g, '""').replace(/\n/g, ' '),
+    issue.timestamp || '',
+    issue.outdated ? 'Yes' : 'No'
+  ]);
+
+  // CSV escaping: wrap fields with commas, quotes, or newlines in quotes, and escape quotes
+  function escapeCSVField(field) {
+    const str = String(field);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const csvRows = [
+    headers.map(escapeCSVField).join(','),
+    ...rows.map(row => row.map(escapeCSVField).join(','))
+  ];
+
+  return csvRows.join('\n');
+}
+
+// Helper to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // Main format function (default)
 function formatIssuesForClipboard(issues) {
   return formatIssuesGroupedByFile(issues, true);
@@ -388,10 +571,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const issues = extractBotIssues();
       const format = request.format || 'grouped';
       const filterOptions = request.filterOptions || {};
-      
+
       // Apply filters to get the count
       const filteredIssues = filterIssues(issues, filterOptions);
-      
+
       let formattedText;
       switch(format) {
         case 'grouped':
@@ -406,10 +589,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'no-instructions':
           formattedText = formatIssuesGroupedByFile(issues, false, filterOptions);
           break;
+        case 'html':
+          formattedText = formatIssuesAsHTML(filteredIssues);
+          break;
+        case 'csv':
+          formattedText = formatIssuesAsCSV(filteredIssues);
+          break;
         default:
           formattedText = formatIssuesGroupedByFile(issues, true, filterOptions);
       }
-      
+
       sendResponse({
         success: true,
         count: filteredIssues.length,
@@ -437,6 +626,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         error: error.message
       });
     }
+  } else if (request.action === 'generateAIReview') {
+    handleAIReview(request.settings, sendResponse);
+    return true; // Keep channel open for async response
   }
   return true; // Keep channel open for async response
 });
+
+// AI Review Handler
+async function handleAIReview(settings, sendResponse) {
+  try {
+    // Create review engine (classes are already loaded via content_scripts)
+    const reviewEngine = new ReviewEngine(settings);
+
+    // Generate review with progress callback
+    const result = await reviewEngine.generateReview((progress) => {
+      // Send progress updates to popup
+      chrome.runtime.sendMessage({
+        action: 'AI_REVIEW_PROGRESS',
+        message: progress.message,
+        progress: progress.progress
+      });
+    });
+
+    if (result.success) {
+      sendResponse({
+        success: true,
+        issues: result.issues,
+        filesReviewed: result.filesReviewed
+      });
+    } else {
+      sendResponse({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('AI review error:', error);
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}

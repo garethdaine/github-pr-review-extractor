@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub PR Review Extractor - Settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #24292f;
+      background: #f6f8fa;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #24292f;
+    }
+
+    .subtitle {
+      color: #57606a;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid #d0d7de;
+    }
+
+    .section:last-child {
+      border-bottom: none;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #24292f;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #24292f;
+      font-size: 14px;
+    }
+
+    .label-description {
+      font-size: 12px;
+      color: #57606a;
+      font-weight: normal;
+      margin-top: 2px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: #57606a;
+      margin-top: 4px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin-bottom: 0;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #2da44e;
+      color: white;
+      border-color: #2da44e;
+    }
+
+    .btn-primary:hover {
+      background: #2c974b;
+      border-color: #2c974b;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #24292f;
+    }
+
+    .btn-secondary:hover {
+      background: #f6f8fa;
+    }
+
+    .btn-test {
+      background: #0969da;
+      color: white;
+      border-color: #0969da;
+    }
+
+    .btn-test:hover {
+      background: #0860ca;
+      border-color: #0860ca;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 15px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.success {
+      background: #dafbe1;
+      color: #1a7f37;
+      border: 1px solid #aceebb;
+    }
+
+    .status.error {
+      background: #ffebe9;
+      color: #cf222e;
+      border: 1px solid #ffcecb;
+    }
+
+    .status.info {
+      background: #ddf4ff;
+      color: #0969da;
+      border: 1px solid #54aeff;
+    }
+
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-left: 10px;
+    }
+
+    .connection-status.connected {
+      background: #dafbe1;
+      color: #1a7f37;
+    }
+
+    .connection-status.disconnected {
+      background: #ffebe9;
+      color: #cf222e;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.green {
+      background: #1a7f37;
+    }
+
+    .status-dot.red {
+      background: #cf222e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GitHub PR Review Extractor - Settings</h1>
+    <p class="subtitle">Configure AI code review settings</p>
+
+    <!-- LLM Configuration Section -->
+    <div class="section">
+      <h2 class="section-title">
+        LLM Configuration
+        <span id="connectionStatus" class="connection-status disconnected" style="display: none;">
+          <span class="status-dot red"></span>
+          Disconnected
+        </span>
+      </h2>
+
+      <div class="form-group">
+        <label>
+          LLM Endpoint URL
+          <div class="label-description">OpenAI-compatible API endpoint (e.g., http://192.168.1.57:8000/v1)</div>
+        </label>
+        <input type="text" id="llmEndpoint" placeholder="http://192.168.1.57:8000/v1">
+        <div class="input-hint">The base URL for your local LLM server</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          API Key
+          <div class="label-description">Authentication key for your LLM endpoint</div>
+        </label>
+        <input type="password" id="apiKey" placeholder="sk-your-api-key">
+        <div class="input-hint">This key is stored securely in your browser</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Model Name
+          <div class="label-description">The model identifier to use for code reviews</div>
+        </label>
+        <input type="text" id="modelName" placeholder="deepseek-ai/deepseek-coder-1.3b-instruct">
+        <div class="input-hint">Must match the model name in your LLM server</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          GitHub Token (Optional)
+          <div class="label-description">Personal access token for GitHub API (increases rate limits and enables posting comments)</div>
+        </label>
+        <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
+        <div class="input-hint">Create at: <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> (needs 'repo' scope)</div>
+      </div>
+
+      <div class="button-group">
+        <button id="testConnection" class="btn-test">Test Connection</button>
+      </div>
+    </div>
+
+    <!-- Review Preferences Section -->
+    <div class="section">
+      <h2 class="section-title">Review Preferences</h2>
+
+      <div class="form-group">
+        <label>
+          Max Tokens
+          <div class="label-description">Maximum response length from the LLM</div>
+        </label>
+        <input type="number" id="maxTokens" value="1000" min="100" max="4000" step="100">
+        <div class="input-hint">Higher values allow more detailed reviews but take longer</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Temperature
+          <div class="label-description">Controls randomness (0 = deterministic, 1 = creative)</div>
+        </label>
+        <input type="number" id="temperature" value="0.2" min="0" max="1" step="0.1">
+        <div class="input-hint">Recommended: 0.2 for consistent code reviews</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Max Issues Per File
+          <div class="label-description">Limit the number of issues reported per file</div>
+        </label>
+        <input type="number" id="maxIssuesPerFile" value="10" min="1" max="50" step="1">
+      </div>
+
+      <div class="form-group">
+        <label>Issue Types to Check</label>
+        <div class="checkbox-group">
+          <input type="checkbox" id="checkBugs" checked>
+          <label for="checkBugs">Bugs and Logic Errors</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="checkSecurity" checked>
+          <label for="checkSecurity">Security Vulnerabilities</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="checkPerformance" checked>
+          <label for="checkPerformance">Performance Issues</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="checkStyle">
+          <label for="checkStyle">Code Style Violations</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="checkErrorHandling" checked>
+          <label for="checkErrorHandling">Missing Error Handling</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="button-group">
+      <button id="saveSettings" class="btn-primary">Save Settings</button>
+      <button id="resetSettings" class="btn-secondary">Reset to Defaults</button>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
