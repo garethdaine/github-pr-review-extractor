@@ -1,15 +1,23 @@
 {
   "manifest_version": 3,
   "name": "GitHub PR Review Extractor",
-  "version": "3.0.0",
-  "description": "Extract all review comments from GitHub PRs (bots and humans) with filtering",
+  "version": "4.0.0",
+  "description": "Extract review comments and generate AI-powered code reviews for GitHub PRs",
   "permissions": [
     "activeTab",
-    "clipboardWrite"
+    "clipboardWrite",
+    "storage"
   ],
   "host_permissions": [
-    "https://github.com/*"
+    "https://github.com/*",
+    "https://api.github.com/*",
+    "http://*/",
+    "https://*/"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "settings.html",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -21,7 +29,7 @@
   "content_scripts": [
     {
       "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["content.js"]
+      "js": ["filters.js", "llm-client.js", "github-api.js", "review-engine.js", "content.js"]
     }
   ],
   "icons": {
