@@ -9,6 +9,7 @@ export interface LLMRequest {
   model: string;
   messages: LLMMessage[];
   max_tokens?: number;
+  max_completion_tokens?: number;
   temperature?: number;
 }
 
@@ -24,4 +25,3 @@ export interface LLMResponse {
     total_tokens: number;
   };
 }
-

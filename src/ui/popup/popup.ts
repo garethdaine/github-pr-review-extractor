@@ -274,6 +274,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// AI Review + GitHub posting handlers (set up after DOM is ready)
+document.addEventListener('DOMContentLoaded', () => {
+  const generateReviewBtn = document.getElementById('generateReviewBtn');
+  if (generateReviewBtn) {
+    generateReviewBtn.addEventListener('click', handleGenerateReview);
+  }
+
+  const previewPostBtn = document.getElementById('previewPostBtn');
+  if (previewPostBtn) {
+    previewPostBtn.addEventListener('click', handlePreviewPost);
+  }
+
+  const postToGitHubBtn = document.getElementById('postToGitHubBtn');
+  if (postToGitHubBtn) {
+    postToGitHubBtn.addEventListener('click', () => handlePostToGitHub(false));
+  }
+
+  const closePreviewModal = document.getElementById('closePreviewModal');
+  if (closePreviewModal) {
+    closePreviewModal.addEventListener('click', () => {
+      const modal = document.getElementById('previewModal');
+      if (modal) modal.style.display = 'none';
+    });
+  }
+
+  const cancelPreview = document.getElementById('cancelPreview');
+  if (cancelPreview) {
+    cancelPreview.addEventListener('click', () => {
+      const modal = document.getElementById('previewModal');
+      if (modal) modal.style.display = 'none';
+    });
+  }
+
+  const confirmPostPreview = document.getElementById('confirmPostPreview');
+  if (confirmPostPreview) {
+    confirmPostPreview.addEventListener('click', async () => {
+      const modal = document.getElementById('previewModal');
+      if (modal) modal.style.display = 'none';
+      await handlePostToGitHub(false);
+    });
+  }
+});
+
 async function handleExtract() {
   const button = document.getElementById('extractBtn');
   const status = document.getElementById('status');
@@ -651,13 +694,14 @@ async function handleGenerateReview() {
         extractedIssues = [...extractedIssues, ...aiGeneratedIssues];
 
         progressFill.style.width = '100%';
-        progressText.textContent = `✓ Generated ${aiIssues.length} AI review comment${aiIssues.length !== 1 ? 's' : ''}!`;
+        progressText.textContent = `✓ Generated ${aiGeneratedIssues.length} AI review comment${aiGeneratedIssues.length !== 1 ? 's' : ''}!`;
 
         // Show results
         if (aiGeneratedIssues.length > 0) {
           showStatus(`✓ AI review complete! Found ${aiGeneratedIssues.length} issue${aiGeneratedIssues.length !== 1 ? 's' : ''}`, 'success');
           document.getElementById('formatSection').style.display = 'block';
           document.getElementById('issuesSection').style.display = 'block';
+          document.getElementById('previewPostBtn').style.display = 'block';
           document.getElementById('postToGitHubBtn').style.display = 'block';
           renderIssuesList(extractedIssues, false);
         } else {
@@ -677,13 +721,12 @@ async function handleGenerateReview() {
       button.textContent = '🤖 Generate AI Review';
     });
 
-    // Listen for progress updates
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'AI_REVIEW_PROGRESS') {
-        progressText.textContent = request.message;
-        if (request.progress) {
-          progressFill.style.width = `${request.progress}%`;
-        }
+    // Listen for progress updates (per-popup-instance)
+    chrome.runtime.onMessage.addListener((request) => {
+      if (request.action !== 'AI_REVIEW_PROGRESS') return;
+      progressText.textContent = request.message;
+      if (typeof request.progress === 'number') {
+        progressFill.style.width = `${request.progress}%`;
       }
     });
 

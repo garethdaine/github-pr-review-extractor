@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Analytics - GitHub PR Review Extractor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f6f8fa;
+      --text-primary: #24292f;
+      --text-secondary: #57606a;
+      --border-color: #d0d7de;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --border-color: #30363d;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .chart-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .chart-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Analytics Dashboard</h1>
+    <p class="subtitle">Review statistics and insights from your PR reviews</p>
+
+    <div id="loading" class="loading">Loading analytics...</div>
+
+    <div id="content" style="display: none;">
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="chart-container">
+        <div class="chart-title">Severity Distribution Over Time</div>
+        <canvas id="severityChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Author Type Breakdown</div>
+        <canvas id="authorChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Top 10 Files with Most Issues</div>
+        <canvas id="filesChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Review Frequency (Last 30 Days)</div>
+        <canvas id="frequencyChart"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">Average Issues per PR</div>
+        <canvas id="avgIssuesChart"></canvas>
+      </div>
+    </div>
+
+    <div id="noData" class="no-data" style="display: none;">
+      <p>No review history found. Start extracting reviews to see analytics!</p>
+    </div>
+  </div>
+
+  <script src="review-history.js"></script>
+  <script src="analytics.js"></script>
+</body>
+</html>
+
+
+
+
+
+

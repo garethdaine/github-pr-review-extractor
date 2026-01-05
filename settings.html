@@ -344,6 +344,51 @@
           <label for="checkErrorHandling">Missing Error Handling</label>
         </div>
       </div>
+
+      <div class="form-group">
+        <div class="checkbox-group">
+          <input type="checkbox" id="multiPassReview" checked>
+          <label for="multiPassReview">Multi-Pass Review</label>
+        </div>
+        <div class="label-description">Pass 1: Critical issues only. Pass 2: Warnings and suggestions. Provides more focused reviews.</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Minimum Confidence Score
+          <div class="label-description">Filter out AI issues below this confidence threshold (0.0 to 1.0)</div>
+        </label>
+        <input type="number" id="minConfidence" value="0.5" min="0" max="1" step="0.1">
+        <div class="input-hint">Issues with confidence below this value will be filtered out</div>
+      </div>
+    </div>
+
+    <!-- Advanced AI Settings -->
+    <div class="section">
+      <h2 class="section-title">Advanced AI Settings</h2>
+
+      <div class="form-group">
+        <label>
+          Custom System Prompt
+          <div class="label-description">Override the default system prompt with your own instructions</div>
+        </label>
+        <textarea id="customSystemPrompt" rows="8" style="width: 100%; padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;" placeholder="Leave empty to use default prompt"></textarea>
+        <div class="input-hint">Define custom review criteria and instructions for the AI</div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Prompt Template
+          <div class="label-description">Select a predefined prompt template</div>
+        </label>
+        <select id="promptTemplate" style="width: 100%; padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px;">
+          <option value="">Use default prompt</option>
+          <option value="security-focused">Security-Focused Review</option>
+          <option value="performance-focused">Performance-Focused Review</option>
+          <option value="style-focused">Style & Best Practices</option>
+          <option value="comprehensive">Comprehensive Review</option>
+        </select>
+      </div>
     </div>
 
     <!-- Actions -->

@@ -14,5 +14,9 @@ export interface ExtensionSettings {
   checkStyle: boolean;
   checkErrorHandling: boolean;
   theme?: 'light' | 'dark' | 'system';
+  multiPassReview?: boolean;
+  minConfidence?: number;
+  customSystemPrompt?: string;
+  promptTemplate?: string;
 }
 

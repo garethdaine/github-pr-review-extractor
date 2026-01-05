@@ -15,6 +15,7 @@ export interface Issue {
   isHuman: boolean;
   suggestion?: string;
   line?: number | null;
+  confidence?: number; // Confidence score 0-1 for AI-generated issues
 }
 
 export interface FilterOptions {

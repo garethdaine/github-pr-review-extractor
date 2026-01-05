@@ -1,6 +1,8 @@
 // GitHub API Client for GitHub PR Review Extractor
 // Fetches PR data and file diffs from GitHub
 
+import cache, { getPRCacheKey } from '../utils/cache';
+
 class GitHubAPIClient {
   constructor(githubToken = null) {
     this.githubToken = githubToken;
@@ -16,7 +18,7 @@ class GitHubAPIClient {
     if (!match) {
       return null;
     }
-    
+
     return {
       owner: match[1],
       repo: match[2],
@@ -25,13 +27,20 @@ class GitHubAPIClient {
   }
 
   /**
-   * Fetch PR details and files from GitHub API
+   * Fetch PR details and files from GitHub API (with caching)
    * @param {string} owner - Repository owner
    * @param {string} repo - Repository name
    * @param {number} prNumber - PR number
    * @returns {Promise<Object>} - PR data
    */
   async fetchPRData(owner, repo, prNumber) {
+    // Check cache first
+    const cacheKey = getPRCacheKey(owner, repo, prNumber);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'FETCH_PR_DATA',
@@ -42,11 +51,14 @@ class GitHubAPIClient {
       });
 
       if (response.success) {
-        return {
+        const result = {
           success: true,
           pr: response.pr,
           files: response.files
         };
+        // Cache for 10 minutes
+        cache.set(cacheKey, result, 10 * 60 * 1000);
+        return result;
       } else {
         return {
           success: false,
@@ -152,16 +164,16 @@ class GitHubAPIClient {
    */
   extractDiffsFromDOM() {
     const fileDiffs = [];
-    
+
     try {
       const fileContainers = document.querySelectorAll('.file');
-      
+
       fileContainers.forEach(container => {
         // Get file path
         const fileHeader = container.querySelector('.file-header');
         const fileLink = fileHeader?.querySelector('[title]');
-        const filename = fileLink?.getAttribute('title') || 
-                        fileLink?.textContent.trim() || 
+        const filename = fileLink?.getAttribute('title') ||
+                        fileLink?.textContent.trim() ||
                         'unknown';
 
         // Check if file is too large (GitHub shows "Large diffs are not rendered by default")
@@ -183,23 +195,23 @@ class GitHubAPIClient {
 
         let patchLines = [];
         const rows = diffTable.querySelectorAll('tr');
-        
+
         rows.forEach(row => {
           const lineNumOld = row.querySelector('.blob-num-deletion')?.textContent.trim();
           const lineNumNew = row.querySelector('.blob-num-addition')?.textContent.trim();
           const codeCell = row.querySelector('.blob-code');
-          
+
           if (!codeCell) return;
-          
+
           const code = codeCell.textContent;
           let prefix = ' ';
-          
+
           if (codeCell.classList.contains('blob-code-deletion')) {
             prefix = '-';
           } else if (codeCell.classList.contains('blob-code-addition')) {
             prefix = '+';
           }
-          
+
           patchLines.push(`${prefix}${code}`);
         });
 
@@ -227,11 +239,11 @@ class GitHubAPIClient {
   async getReviewableFiles(owner, repo, prNumber) {
     // Try DOM first (faster and already available)
     const domDiffs = this.extractDiffsFromDOM();
-    
+
     // Check if we have any files that are too large
     const largeFiles = domDiffs.filter(f => f.tooLarge);
     const validDomFiles = domDiffs.filter(f => !f.tooLarge);
-    
+
     if (largeFiles.length > 0) {
       console.log(`Found ${largeFiles.length} large files, fetching from API...`);
       // Fetch large files from API
@@ -252,7 +264,7 @@ class GitHubAPIClient {
       // If API fails, just use DOM files we have
       console.warn('API fetch failed for large files, using DOM files only');
     }
-    
+
     if (validDomFiles.length > 0) {
       console.log(`Extracted ${validDomFiles.length} files from DOM`);
       return {
@@ -269,10 +281,10 @@ class GitHubAPIClient {
     } else {
       console.log('On Files tab but no diffs found, falling back to GitHub API');
     }
-    
+
     // Fall back to API
     const apiResult = await this.fetchPRData(owner, repo, prNumber);
-    
+
     if (apiResult.success) {
       const files = this.extractFilePatches(apiResult.files);
       return {
@@ -293,6 +305,11 @@ class GitHubAPIClient {
 
     return apiResult;
   }
+}
+
+// Make available globally for content scripts (loaded as a separate bundle)
+if (typeof window !== 'undefined') {
+  (window as any).GitHubAPIClient = GitHubAPIClient;
 }
 
 // Export for use in other scripts

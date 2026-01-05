@@ -7,6 +7,79 @@
 
 console.log('GitHub PR Review Extractor background service worker loaded');
 
+type TokenParamName = 'max_tokens' | 'max_completion_tokens';
+
+function preferredTokenParamForModel(modelName: string | undefined): TokenParamName {
+  const model = (modelName || '').trim().toLowerCase();
+  if (model.startsWith('o1') || model.startsWith('o3')) return 'max_completion_tokens';
+  return 'max_tokens';
+}
+
+function isUnsupportedTokenParamError(errorText: string, paramName: TokenParamName): boolean {
+  if (!errorText) return false;
+  if (!errorText.includes('Unsupported parameter')) return false;
+  return errorText.includes(`'${paramName}'`) || errorText.includes(`"${paramName}"`);
+}
+
+async function postChatCompletions({
+  endpoint,
+  apiKey,
+  modelName,
+  messages,
+  maxTokens,
+  temperature,
+  tokenParamName
+}: {
+  endpoint: string;
+  apiKey: string;
+  modelName: string;
+  messages: any[];
+  maxTokens: number;
+  temperature?: number;
+  tokenParamName: TokenParamName;
+}): Promise<{ ok: true; status: number; json: any } | { ok: false; status: number; errorText: string }> {
+  const body: Record<string, any> = {
+    model: modelName,
+    messages,
+    temperature: temperature ?? 0.2
+  };
+  body[tokenParamName] = maxTokens;
+
+  const response = await fetch(`${endpoint}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120000) // 2 minute timeout
+  });
+
+  if (response.ok) {
+    return { ok: true, status: response.status, json: await response.json() };
+  }
+
+  return { ok: false, status: response.status, errorText: await response.text() };
+}
+
+async function postChatCompletionsWithTokenFallback(params: {
+  endpoint: string;
+  apiKey: string;
+  modelName: string;
+  messages: any[];
+  maxTokens: number;
+  temperature?: number;
+}): Promise<{ ok: true; status: number; json: any } | { ok: false; status: number; errorText: string }> {
+  const preferred = preferredTokenParamForModel(params.modelName);
+  const first = await postChatCompletions({ ...params, tokenParamName: preferred });
+  if (first.ok) return first;
+
+  if (!isUnsupportedTokenParamError(first.errorText, preferred)) return first;
+
+  const fallback: TokenParamName = preferred === 'max_tokens' ? 'max_completion_tokens' : 'max_tokens';
+  return postChatCompletions({ ...params, tokenParamName: fallback });
+}
+
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request.action);
@@ -39,35 +112,26 @@ async function handleTestConnection(request, sendResponse) {
 
     console.log(`Testing connection to ${endpoint}`);
 
-    // Make a simple test request
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          { role: 'user', content: 'Hello, are you working?' }
-        ],
-        max_tokens: 10
-      })
+    const result = await postChatCompletionsWithTokenFallback({
+      endpoint,
+      apiKey,
+      modelName,
+      messages: [{ role: 'user', content: 'Hello, are you working?' }],
+      maxTokens: 10,
+      temperature: 0.2
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Connection test successful:', data);
+    if (result.ok) {
+      console.log('Connection test successful:', result.json);
       sendResponse({
         success: true,
-        model: data.model || modelName
+        model: result.json.model || modelName
       });
     } else {
-      const errorText = await response.text();
-      console.error('Connection test failed:', response.status, errorText);
+      console.error('Connection test failed:', result.status, result.errorText);
       sendResponse({
         success: false,
-        error: `HTTP ${response.status}: ${errorText}`
+        error: `HTTP ${result.status}: ${result.errorText}`
       });
     }
   } catch (error) {
@@ -114,36 +178,28 @@ async function handleLLMCall(request, sendResponse) {
 
     console.log(`Calling LLM at ${endpoint} with model ${modelName}`);
 
-    const response = await retryWithBackoff(async () => {
-      return await fetch(`${endpoint}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: messages,
-          max_tokens: maxTokens || 1000,
-          temperature: temperature || 0.2
-        }),
-        signal: AbortSignal.timeout(120000) // 2 minute timeout
+    const result = await retryWithBackoff(async () => {
+      return await postChatCompletionsWithTokenFallback({
+        endpoint,
+        apiKey,
+        modelName,
+        messages: messages,
+        maxTokens: maxTokens || 1000,
+        temperature: temperature || 0.2
       });
     });
 
-    if (response.ok) {
-      const data = await response.json();
+    if (result.ok) {
       console.log('LLM call successful');
       sendResponse({
         success: true,
-        data: data
+        data: result.json
       });
     } else {
-      const errorText = await response.text();
-      console.error('LLM call failed:', response.status, errorText);
+      console.error('LLM call failed:', result.status, result.errorText);
       sendResponse({
         success: false,
-        error: `HTTP ${response.status}: ${errorText}`
+        error: `HTTP ${result.status}: ${result.errorText}`
       });
     }
   } catch (error) {
@@ -181,24 +237,45 @@ async function handleFetchPRData(request, sendResponse) {
       headers['Authorization'] = `Bearer ${githubToken}`;
     }
 
-    // Fetch PR details
-    const prResponse = await fetch(`${baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}`, {
+    const prUrl = `${baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}`;
+    const prResponse = await fetch(prUrl, {
       headers: headers
     });
 
     if (!prResponse.ok) {
-      throw new Error(`GitHub API error: ${prResponse.status} ${prResponse.statusText}`);
+      const errorText = await prResponse.text().catch(() => '');
+      const hint = prResponse.status === 404
+        ? (githubToken
+          ? 'If this is a private repo, verify the token has access (and required scopes) to this repository/PR.'
+          : 'If this is a private repo, add a GitHub token in extension Options (or navigate to the "Files changed" tab so the extension can use DOM diffs).')
+        : '';
+      throw new Error(
+        `GitHub API error fetching PR: ${prResponse.status} ${prResponse.statusText}` +
+        (hint ? `\n\n${hint}` : '') +
+        (errorText ? `\n\n${errorText}` : '')
+      );
     }
 
     const prData = await prResponse.json();
 
     // Fetch PR files
-    const filesResponse = await fetch(`${baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}/files`, {
+    const filesUrl = `${baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}/files`;
+    const filesResponse = await fetch(filesUrl, {
       headers: headers
     });
 
     if (!filesResponse.ok) {
-      throw new Error(`GitHub API error: ${filesResponse.status} ${filesResponse.statusText}`);
+      const errorText = await filesResponse.text().catch(() => '');
+      const hint = filesResponse.status === 404
+        ? (githubToken
+          ? 'If this is a private repo, verify the token has access (and required scopes) to this repository/PR.'
+          : 'If this is a private repo, add a GitHub token in extension Options.')
+        : '';
+      throw new Error(
+        `GitHub API error fetching PR files: ${filesResponse.status} ${filesResponse.statusText}` +
+        (hint ? `\n\n${hint}` : '') +
+        (errorText ? `\n\n${errorText}` : '')
+      );
     }
 
     const filesData = await filesResponse.json();

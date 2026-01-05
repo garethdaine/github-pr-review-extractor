@@ -15,27 +15,27 @@
     "https://*/"
   ],
   "background": {
-    "service_worker": "dist/background.js"
+    "service_worker": "background.js"
   },
-  "options_page": "dist/settings.html",
+  "options_page": "settings.html",
   "action": {
-    "default_popup": "dist/popup.html",
+    "default_popup": "popup.html",
     "default_icon": {
-      "16": "dist/icons/icon16.png",
-      "48": "dist/icons/icon48.png",
-      "128": "dist/icons/icon128.png"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "content_scripts": [
     {
       "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["dist/filters.js", "dist/sorters.js", "dist/llm-client.js", "dist/github-api.js", "dist/review-engine.js", "dist/content.js"]
+      "js": ["filters.js", "sorters.js", "llm-client.js", "github-api.js", "review-engine.js", "content.js"]
     }
   ],
   "icons": {
-    "16": "dist/icons/icon16.png",
-    "48": "dist/icons/icon48.png",
-    "128": "dist/icons/icon128.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "web_accessible_resources": [
     {
@@ -46,3 +46,4 @@
     }
   ]
 }
+
