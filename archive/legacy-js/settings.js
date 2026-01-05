@@ -1,5 +1,93 @@
 // Settings management for GitHub PR Review Extractor
 
+// Prompt templates
+const PROMPT_TEMPLATES = {
+  'security-focused': `You are a security-focused code reviewer. Your primary task is to identify security vulnerabilities, potential exploits, and unsafe coding practices.
+
+Focus on:
+- SQL injection vulnerabilities
+- XSS (Cross-Site Scripting) risks
+- Authentication and authorization flaws
+- Sensitive data exposure
+- Insecure dependencies
+- Cryptographic weaknesses
+- Input validation issues
+
+For each security issue found, provide:
+1. Line number (if applicable)
+2. Severity (CRITICAL for security issues)
+3. A brief title
+4. Detailed description of the vulnerability
+5. Suggested fix
+6. Confidence score (0.0 to 1.0)
+
+Format your response as a JSON array of issues.`,
+
+  'performance-focused': `You are a performance-focused code reviewer. Your task is to identify performance bottlenecks, inefficient algorithms, and optimization opportunities.
+
+Focus on:
+- N+1 query problems
+- Inefficient loops and iterations
+- Memory leaks
+- Unnecessary computations
+- Missing indexes
+- Large data processing without pagination
+- Inefficient data structures
+
+For each performance issue found, provide:
+1. Line number (if applicable)
+2. Severity (WARNING for performance issues)
+3. A brief title
+4. Detailed description
+5. Suggested optimization
+6. Confidence score (0.0 to 1.0)
+
+Format your response as a JSON array of issues.`,
+
+  'style-focused': `You are a code style and best practices reviewer. Your task is to ensure code follows best practices, conventions, and maintainability standards.
+
+Focus on:
+- Code style consistency
+- Naming conventions
+- Code organization
+- Documentation
+- DRY (Don't Repeat Yourself) violations
+- SOLID principles
+- Design patterns
+
+For each style issue found, provide:
+1. Line number (if applicable)
+2. Severity (SUGGESTION for style issues)
+3. A brief title
+4. Detailed description
+5. Suggested improvement
+6. Confidence score (0.0 to 1.0)
+
+Format your response as a JSON array of issues.`,
+
+  'comprehensive': `You are a senior software engineer conducting a comprehensive code review. Analyze code changes from multiple perspectives.
+
+Focus on:
+- Bugs and logic errors
+- Security vulnerabilities
+- Performance issues
+- Code style and best practices
+- Error handling
+- Test coverage
+- Maintainability
+- Documentation
+
+For each issue found, provide:
+1. Line number (if applicable)
+2. Severity (CRITICAL, WARNING, or SUGGESTION)
+3. A brief title
+4. Detailed description
+5. Suggested fix
+6. Confidence score (0.0 to 1.0)
+
+Format your response as a JSON array of issues.`
+};
+
 // Default settings
 const DEFAULT_SETTINGS = {
   llmEndpoint: 'http://192.168.1.57:8000/v1',
@@ -26,7 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get(DEFAULT_SETTINGS);
-    
+
     // Populate form fields
     document.getElementById('llmEndpoint').value = settings.llmEndpoint || DEFAULT_SETTINGS.llmEndpoint;
     document.getElementById('apiKey').value = settings.apiKey || '';
@@ -35,14 +123,40 @@ async function loadSettings() {
     document.getElementById('maxTokens').value = settings.maxTokens || DEFAULT_SETTINGS.maxTokens;
     document.getElementById('temperature').value = settings.temperature || DEFAULT_SETTINGS.temperature;
     document.getElementById('maxIssuesPerFile').value = settings.maxIssuesPerFile || DEFAULT_SETTINGS.maxIssuesPerFile;
-    
+
     // Populate checkboxes
     document.getElementById('checkBugs').checked = settings.checkBugs !== false;
     document.getElementById('checkSecurity').checked = settings.checkSecurity !== false;
     document.getElementById('checkPerformance').checked = settings.checkPerformance !== false;
     document.getElementById('checkStyle').checked = settings.checkStyle === true;
     document.getElementById('checkErrorHandling').checked = settings.checkErrorHandling !== false;
-    
+    document.getElementById('multiPassReview').checked = settings.multiPassReview !== false;
+
+    // Populate new fields
+    const minConfidenceEl = document.getElementById('minConfidence');
+    if (minConfidenceEl) {
+      minConfidenceEl.value = settings.minConfidence !== undefined ? settings.minConfidence : 0.5;
+    }
+
+    const customPromptEl = document.getElementById('customSystemPrompt');
+    if (customPromptEl) {
+      customPromptEl.value = settings.customSystemPrompt || '';
+    }
+
+    const promptTemplateEl = document.getElementById('promptTemplate');
+    if (promptTemplateEl) {
+      promptTemplateEl.value = settings.promptTemplate || '';
+      // Update custom prompt when template changes
+      promptTemplateEl.addEventListener('change', (e) => {
+        const template = e.target.value;
+        if (template && PROMPT_TEMPLATES[template]) {
+          customPromptEl.value = PROMPT_TEMPLATES[template];
+        } else if (!template) {
+          customPromptEl.value = '';
+        }
+      });
+    }
+
     console.log('Settings loaded:', settings);
   } catch (error) {
     console.error('Failed to load settings:', error);
@@ -72,25 +186,29 @@ async function saveSettings() {
       checkSecurity: document.getElementById('checkSecurity').checked,
       checkPerformance: document.getElementById('checkPerformance').checked,
       checkStyle: document.getElementById('checkStyle').checked,
-      checkErrorHandling: document.getElementById('checkErrorHandling').checked
+      checkErrorHandling: document.getElementById('checkErrorHandling').checked,
+      multiPassReview: document.getElementById('multiPassReview').checked,
+      minConfidence: parseFloat(document.getElementById('minConfidence').value) || 0.5,
+      customSystemPrompt: document.getElementById('customSystemPrompt').value.trim(),
+      promptTemplate: document.getElementById('promptTemplate').value
     };
-    
+
     // Validate settings
     if (!settings.llmEndpoint) {
       showStatus('Please enter an LLM endpoint URL', 'error');
       return;
     }
-    
+
     if (!settings.apiKey) {
       showStatus('Please enter an API key', 'error');
       return;
     }
-    
+
     if (!settings.modelName) {
       showStatus('Please enter a model name', 'error');
       return;
     }
-    
+
     // Validate URL format
     try {
       new URL(settings.llmEndpoint);
@@ -98,7 +216,7 @@ async function saveSettings() {
       showStatus('Invalid endpoint URL format', 'error');
       return;
     }
-    
+
     // Save to storage
     await chrome.storage.local.set(settings);
     showStatus('Settings saved successfully!', 'success');
@@ -127,21 +245,21 @@ async function resetSettings() {
 async function testConnection() {
   const button = document.getElementById('testConnection');
   const statusIndicator = document.getElementById('connectionStatus');
-  
+
   // Get current settings
   const endpoint = document.getElementById('llmEndpoint').value.trim();
   const apiKey = document.getElementById('apiKey').value.trim();
   const modelName = document.getElementById('modelName').value.trim();
-  
+
   if (!endpoint || !apiKey || !modelName) {
     showStatus('Please fill in endpoint URL, API key, and model name before testing', 'error');
     return;
   }
-  
+
   button.disabled = true;
   button.textContent = 'Testing...';
   statusIndicator.style.display = 'none';
-  
+
   try {
     // Send message to background script to test connection
     const response = await chrome.runtime.sendMessage({
@@ -150,7 +268,7 @@ async function testConnection() {
       apiKey: apiKey,
       modelName: modelName
     });
-    
+
     if (response.success) {
       showStatus(`✓ Connection successful! Model: ${response.model || modelName}`, 'success');
       updateConnectionStatus(true);
@@ -172,7 +290,7 @@ async function testConnection() {
 function updateConnectionStatus(connected) {
   const statusIndicator = document.getElementById('connectionStatus');
   statusIndicator.style.display = 'inline-flex';
-  
+
   if (connected) {
     statusIndicator.className = 'connection-status connected';
     statusIndicator.innerHTML = '<span class="status-dot green"></span> Connected';
@@ -188,7 +306,7 @@ function showStatus(message, type) {
   statusElement.textContent = message;
   statusElement.className = `status ${type}`;
   statusElement.style.display = 'block';
-  
+
   // Auto-hide after 5 seconds for success/info messages
   if (type === 'success' || type === 'info') {
     setTimeout(() => {

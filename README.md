@@ -1,9 +1,10 @@
 # GitHub PR Review Extractor
 
-A Chrome extension that extracts **all review comments** from GitHub Pull Request pages - including bots (Copilot, Cursor, etc.) and human reviewers - and copies them to your clipboard with full context.
+A Chrome extension that extracts **all review comments** from GitHub Pull Request pages - including bots (Copilot, Cursor, etc.) and human reviewers - and generates AI-powered code reviews with full context.
 
 ## Features
 
+### Core Extraction
 - 📝 **Extracts ALL review comments** - bots and humans
 - 🤖 Identifies **GitHub Copilot AI** suggestions
 - 🤖 Detects **Cursor Bot** and other bot comments
@@ -11,8 +12,36 @@ A Chrome extension that extracts **all review comments** from GitHub Pull Reques
 - 🏷️ Labels each comment by author and type
 - 🚫 Filters out outdated/resolved comments
 - 📊 Shows severity levels (Critical, Warning, Suggestion)
-- 📋 Multiple export formats (Grouped, Summary, JSON)
-- ⚡ Simple one-click operation
+
+### AI-Powered Reviews
+- 🤖 **Generate AI code reviews** using local LLM servers
+- 🔄 **Multi-pass review** - Critical issues first, then general review
+- 📈 **Confidence scores** for AI-generated issues
+- 🎯 **Custom prompts** and prompt templates
+- 🔍 **Configurable issue types** (bugs, security, performance, style, error handling)
+
+### Filtering & Sorting
+- 🔍 **Advanced filtering** by severity, author type, file paths (regex)
+- 🔎 **Search functionality** across titles, content, and file paths
+- 📋 **Filter presets** for common scenarios
+- 🔄 **Multiple sort options** (severity, file, author, date)
+
+### Export Formats
+- 📁 **Grouped**: Comments organized by file with instructions
+- 📋 **Summary**: Quick overview by file
+- 📄 **No Instructions**: Grouped format without instructions
+- { } **JSON**: Machine-readable JSON format
+- 🌐 **HTML**: Styled HTML export
+- 📊 **CSV**: Spreadsheet-friendly format
+- 📄 **PDF**: Print-ready PDF export
+
+### Additional Features
+- 📊 **Analytics Dashboard** - Visualize review history and trends
+- 🔄 **Batch Processing** - Process multiple PRs at once
+- 📚 **Review History** - Track and revisit past reviews
+- 🌍 **Internationalization** - Support for English, Spanish, French, German
+- 🌙 **Dark Mode** - System preference detection and manual toggle
+- ⚡ **Performance Optimized** - Caching, virtual scrolling, debounced inputs
 
 ## Installation
 
@@ -21,21 +50,37 @@ A Chrome extension that extracts **all review comments** from GitHub Pull Reques
 
 ### Option 2: From Source (Development)
 
-1. Clone this repository:
+1. **Clone this repository:**
    ```bash
    git clone https://github.com/yourusername/github-pr-bot-extractor.git
    cd github-pr-bot-extractor
    ```
 
-2. Load in Chrome:
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Build the extension:**
+   ```bash
+   npm run build
+   ```
+   This will create a `dist/` directory with the compiled extension.
+
+4. **Load in Chrome:**
    - Open Chrome and navigate to `chrome://extensions/`
    - Enable "Developer mode" (toggle in top-right corner)
    - Click "Load unpacked"
-   - Select the cloned `github-pr-bot-extractor` directory
+   - Select the `dist/` directory (not the root directory)
 
-3. You're ready! The extension icon will appear in your Chrome toolbar.
+5. **Configure settings:**
+   - Right-click the extension icon → Options
+   - Enter your LLM endpoint URL, API key, and model name
+   - (Optional) Add GitHub token for posting reviews and batch processing
 
 ## Usage
+
+### Basic Extraction
 
 1. **Navigate** to any GitHub Pull Request page
 2. **Click** the extension icon in your browser toolbar
@@ -45,126 +90,124 @@ A Chrome extension that extracts **all review comments** from GitHub Pull Reques
    - View breakdown by author type
    - Check outdated vs current comments
 5. **Filter** (optional):
-   - "Exclude outdated issues" is checked by default
-   - Uncheck to include resolved/outdated comments
-6. **Export** in your preferred format:
-   - **📁 Grouped**: Comments organized by file with instructions
-   - **📋 Summary**: Quick overview by file
-   - **📄 No Instructions**: Grouped format without instructions
-   - **{ } JSON**: Machine-readable JSON format
+   - Use severity, author type, file path filters
+   - Search across titles and content
+   - Apply filter presets
+6. **Export** in your preferred format
 7. **Copy** individual comments using the Copy button on each item
-8. **Paste** anywhere you need it - content is automatically copied!
 
-## What Gets Extracted
+### AI Code Review
 
-The extension extracts **all review comments** from a PR, including:
+1. **Configure LLM settings** in extension options
+2. **Navigate** to a GitHub PR page
+3. **Click** "🤖 Generate AI Review" button
+4. **Wait** for AI analysis (progress shown in real-time)
+5. **Review** AI-generated issues with confidence scores
+6. **Preview & Post** to GitHub (optional):
+   - Preview all comments before posting
+   - Post as draft or submit review
+   - Comments are posted to appropriate file locations
 
-1. **Bot Comments**:
-   - GitHub Copilot AI suggestions
-   - Cursor Bot comments
-   - Any other bot-generated reviews
-   
-2. **Human Reviewer Comments**:
-   - All comments from team members
-   - Code review feedback
-   - Discussion threads
+### Batch Processing
 
-**For each comment, it captures:**
-- Author name and type (Bot/Human)
-- File path and line numbers
-- Code context from diffs
-- Comment content and suggestions
-- Timestamp information
-- Severity classification
-- Outdated/resolved status
+1. **Open** batch processing page (from popup menu or `chrome://extensions`)
+2. **Enter** repository name (e.g., `owner/repo`)
+3. **Fetch PRs** - Get list of open PRs
+4. **Select** PRs to process
+5. **Process** - Review all selected PRs automatically
+6. **View** batch report with results
 
-## Output Format
+### Analytics Dashboard
 
-The default export format is Markdown, organized by file:
+1. **Open** analytics page (from popup menu)
+2. **View** charts showing:
+   - Severity distribution
+   - Author type breakdown
+   - Top files by issues
+   - Review frequency over time
+   - Average issues per PR
 
-````markdown
-# Code Review Comments - Feature/my-feature
+## Development
 
-**PR:** https://github.com/org/repo/pull/123
-**Extracted:** 02/01/2026, 11:30:00
-**Total Comments:** 15 (3 outdated excluded, 18 total)
-
-**By Severity:** 🔴 2 Critical, 🟡 5 Warnings, 🔵 8 Suggestions
-**By Author Type:** Human Reviewer (8), GitHub Copilot AI (5), Cursor Bot (2)
-
----
-
-## 📁 `src/components/MyComponent.tsx`
-
-3 issues found
-
-### 🔴 Breaking API Change
-
-**Author:** Copilot (GitHub Copilot AI)
-**Severity:** CRITICAL
-
-**Code:**
-```typescript
-45: export function getData(id: string) {
-46:   return api.fetch(id);
-47: }
-```
-
-**💡 Suggestion:**
-The function signature changed from accepting an object to a string...
-
----
-
-### 🟡 Consider Error Handling
-
-**Author:** John Smith (Human Reviewer)
-**Severity:** WARNING
-
-**💡 Suggestion:**
-Should we add try-catch here for better error handling?
-
----
-````
-
-## Privacy & Permissions
-
-The extension requires minimal permissions:
-
-- **`activeTab`**: Read the current GitHub PR page content
-- **`clipboardWrite`**: Copy extracted comments to your clipboard
-- **`https://github.com/*`**: Only runs on GitHub.com pages
-
-**Privacy Promise:**
-- ✅ All processing happens locally in your browser
-- ✅ No data is sent to external servers
-- ✅ No analytics or tracking
-- ✅ No data storage beyond clipboard copy
-- ✅ Open source - verify the code yourself!
-
-## Architecture
-
-### File Structure
+### Project Structure
 
 ```
 github-pr-bot-extractor/
-├── manifest.json           # Extension configuration
-├── content.js              # Content script - extracts review comments
-├── popup.html              # Popup UI structure
-├── popup.js                # Popup logic and event handlers
-├── icons/                  # Extension icons
-│   ├── icon16.png         # 16x16 toolbar icon
-│   ├── icon48.png         # 48x48 management icon
-│   └── icon128.png        # 128x128 store icon
-├── README.md              # This file
-├── CONTRIBUTING.md        # Contribution guidelines
-└── docs/                  # Additional documentation
-    ├── RELEASE_NOTES_*.md
-    └── TESTING_GUIDE.md
+├── src/
+│   ├── core/                 # Core extraction and processing logic
+│   │   ├── content.ts        # Content script entry point
+│   │   ├── extractor.ts      # Issue extraction from DOM
+│   │   ├── filters.ts        # Filtering utilities
+│   │   ├── formatters.ts     # Export format converters
+│   │   └── sorters.ts        # Sorting utilities
+│   ├── services/             # External service integrations
+│   │   ├── github-api.ts     # GitHub API client
+│   │   ├── llm-client.ts    # LLM API client
+│   │   ├── review-engine.ts  # AI review orchestration
+│   │   └── batch-processor.ts # Batch processing logic
+│   ├── ui/                   # UI components
+│   │   ├── background/       # Background service worker
+│   │   ├── popup/            # Popup interface
+│   │   ├── settings/         # Settings page
+│   │   └── history/          # Review history page
+│   ├── utils/                # Utility functions
+│   │   ├── cache.ts          # Caching utilities
+│   │   ├── error-handler.ts  # Error handling
+│   │   ├── i18n.ts           # Internationalization
+│   │   └── virtual-scroll.ts # Virtual scrolling
+│   ├── types/                # TypeScript type definitions
+│   └── locales/              # i18n message files
+│       ├── en/
+│       ├── es/
+│       ├── fr/
+│       └── de/
+├── dist/                     # Build output (generated)
+├── archive/                  # Archived legacy files
+├── build.js                  # Build script (esbuild)
+├── manifest.json             # Extension manifest
+├── popup.html                # Popup HTML
+├── settings.html             # Settings page HTML
+├── analytics.html            # Analytics dashboard HTML
+├── batch-ui.html             # Batch processing UI HTML
+├── history.html              # Review history page HTML
+└── package.json              # Project dependencies
 ```
+
+### Build System
+
+The project uses **esbuild** for fast TypeScript compilation and bundling.
+
+**Build commands:**
+- `npm run build` - Build for development (with source maps)
+- `npm run build:prod` - Build for production (minified)
+- `npm run watch` - Watch mode for development
+
+**Type checking:**
+- `npm run type-check` - Run TypeScript type checker
+
+**Testing:**
+- `npm test` - Run tests with Vitest
+- `npm run test:coverage` - Run tests with coverage
+
+### Development Workflow
+
+1. **Make changes** to TypeScript files in `src/`
+2. **Build** the extension: `npm run build`
+3. **Reload** the extension in Chrome (`chrome://extensions/`)
+4. **Test** your changes on a GitHub PR page
+
+### Code Style
+
+- **TypeScript** - All new code should be in TypeScript
+- **Strict mode** - TypeScript strict mode enabled
+- **ES Modules** - Use ES6 import/export syntax
+- **Type safety** - Avoid `any` types, use proper interfaces
+
+## Architecture
 
 ### How It Works
 
-1. **Content Script** (`content.js`):
+1. **Content Script** (`src/core/content.ts`):
    - Runs automatically on GitHub PR pages
    - Scans DOM for review thread components
    - Identifies comment authors (bots vs humans)
@@ -173,20 +216,63 @@ github-pr-bot-extractor/
    - Classifies severity based on keywords
    - Returns structured data to popup
 
-2. **Popup Interface** (`popup.html` + `popup.js`):
+2. **Popup Interface** (`src/ui/popup/popup.ts`):
    - Triggered when user clicks extension icon
    - Sends extraction request to content script
    - Displays results with filters and options
    - Handles multiple export formats
    - Manages clipboard operations
    - Shows real-time statistics
+   - Integrates with AI review engine
 
-3. **Communication Flow**:
+3. **Background Service Worker** (`src/ui/background/background.ts`):
+   - Handles LLM API calls (cross-origin)
+   - Manages GitHub API requests
+   - Caches API responses
+   - Provides connection testing
+
+4. **AI Review Engine** (`src/services/review-engine.ts`):
+   - Orchestrates multi-pass reviews
+   - Manages file-by-file analysis
+   - Extracts confidence scores
+   - Formats review comments
+
+5. **Communication Flow**:
    ```
-   User clicks icon → Popup opens → Sends message to content.js
-   → content.js extracts comments → Returns data to popup
-   → Popup formats and displays → Copies to clipboard
+   User clicks icon → Popup opens → Sends message to content script
+   → Content script extracts comments → Returns data to popup
+   → Popup formats and displays → User can copy or generate AI review
+   → AI review → Background worker → LLM API → Results back to popup
    ```
+
+## Configuration
+
+### LLM Settings
+
+Configure in extension options (`chrome://extensions` → Options):
+
+- **LLM Endpoint URL**: Your local LLM server (e.g., `http://192.168.1.57:8000/v1`)
+- **API Key**: Authentication key for your LLM endpoint
+- **Model Name**: Model identifier (e.g., `deepseek-ai/deepseek-coder-1.3b-instruct`)
+- **Max Tokens**: Maximum response length (default: 1000)
+- **Temperature**: Randomness control (default: 0.2)
+- **Max Issues Per File**: Limit issues per file (default: 10)
+
+### Review Preferences
+
+- **Issue Types**: Select which types to check (bugs, security, performance, style, error handling)
+- **Multi-Pass Review**: Enable two-pass review (critical first, then general)
+- **Confidence Threshold**: Minimum confidence score for AI issues (0.0-1.0)
+- **Custom System Prompt**: Override default AI prompt
+- **Prompt Templates**: Pre-defined templates (security-focused, performance-focused, etc.)
+
+### GitHub Integration
+
+- **GitHub Token** (optional): Personal access token for:
+  - Increased API rate limits
+  - Posting review comments
+  - Batch processing PRs
+  - Create at: `github.com/settings/tokens` (needs `repo` scope)
 
 ## Troubleshooting
 
@@ -202,20 +288,22 @@ github-pr-bot-extractor/
 - Comments might be on the "Conversation" tab instead of "Files changed"
 - Try refreshing the PR page
 
+**AI Review not working**
+- Check LLM endpoint URL is correct
+- Verify API key is valid
+- Test connection in settings
+- Check browser console for errors
+- Ensure model name matches your LLM server
+
 **Copy to clipboard fails**
 - Grant clipboard permissions when prompted
 - Try clicking the extension icon again
 - Check Chrome's site permissions for github.com
 
-**Comments missing or incomplete**
-- GitHub may have updated their HTML structure
-- Check browser console (F12) for errors
-- Report an issue on GitHub with details
-
-**Outdated filter not working**
-- Ensure you're on the latest version
-- Try unchecking and rechecking the filter
-- Reload the extension in `chrome://extensions/`
+**Build errors**
+- Run `npm install` to ensure dependencies are installed
+- Check Node.js version (requires Node 18+)
+- Clear `dist/` directory and rebuild
 
 ### Getting Help
 
@@ -223,11 +311,36 @@ github-pr-bot-extractor/
 - Open a new issue with:
   - Extension version
   - Chrome version
+  - Node.js version
   - PR URL (if public)
   - Browser console errors
   - Screenshots if applicable
 
 ## Changelog
+
+### Version 4.0.0 - Major Refactor & New Features
+
+#### Architecture
+- ✅ **TypeScript migration** - Full TypeScript rewrite with strict types
+- ✅ **Modular structure** - Organized into `src/core/`, `src/services/`, `src/ui/`
+- ✅ **Build system** - esbuild for fast compilation and bundling
+- ✅ **Internationalization** - Support for 4+ languages
+
+#### New Features
+- 🤖 **AI Code Review** - Generate reviews using local LLM servers
+- 📊 **Analytics Dashboard** - Visualize review history and trends
+- 🔄 **Batch Processing** - Process multiple PRs at once
+- 📚 **Review History** - Track and revisit past reviews
+- 🌍 **i18n Support** - English, Spanish, French, German
+- 🌙 **Dark Mode** - System preference detection
+
+#### Enhancements
+- 🔍 **Advanced filtering** - Severity, author type, file paths (regex), search
+- 🔄 **Multi-pass AI review** - Critical issues first, then general
+- 📈 **Confidence scores** - AI-generated issues include confidence levels
+- 🎯 **Custom prompts** - Override default AI system prompts
+- ⚡ **Performance** - Caching, virtual scrolling, debounced inputs
+- 📋 **More export formats** - HTML, CSV, PDF support
 
 ### Version 3.0.0 - Major Update
 - 🎉 **Now extracts ALL review comments, not just bots!**
@@ -253,12 +366,9 @@ github-pr-bot-extractor/
 - Individual issue copying
 - Improved UI with issue preview
 
-## Future Enhancements
+## Contributing
 
-- [ ] Add support for more bot types
-- [ ] Allow custom extraction patterns
-- [ ] Batch extraction from multiple PRs
-- [ ] Filter by severity level
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to this project.
 
 ## License
 

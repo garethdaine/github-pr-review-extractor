@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch PR Review - GitHub PR Review Extractor</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f6f8fa;
+      --text-primary: #24292f;
+      --text-secondary: #57606a;
+      --border-color: #d0d7de;
+      --button-primary-bg: #2da44e;
+      --button-primary-hover: #2c974b;
+      --button-secondary-bg: #f6f8fa;
+      --button-secondary-hover: #f3f4f6;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --border-color: #30363d;
+      --button-primary-bg: #238636;
+      --button-primary-hover: #2ea043;
+      --button-secondary-bg: #21262d;
+      --button-secondary-hover: #30363d;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'SF Mono', Monaco, monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      resize: vertical;
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: var(--button-primary-bg);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--button-primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--button-secondary-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: var(--button-secondary-hover);
+    }
+
+    .btn-danger {
+      background: #cf222e;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #a40e26;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .progress-section {
+      display: none;
+    }
+
+    .progress-section.active {
+      display: block;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 24px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--button-primary-bg);
+      transition: width 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .results-section {
+      display: none;
+    }
+
+    .results-section.active {
+      display: block;
+    }
+
+    .result-item {
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 12px;
+      background: var(--bg-primary);
+    }
+
+    .result-item.success {
+      border-left: 4px solid #2da44e;
+    }
+
+    .result-item.error {
+      border-left: 4px solid #cf222e;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .result-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .status.active {
+      display: block;
+    }
+
+    .status.success {
+      background: #dafbe1;
+      color: #1a7f37;
+      border: 1px solid #aceebb;
+    }
+
+    .status.error {
+      background: #ffebe9;
+      color: #cf222e;
+      border: 1px solid #ffcecb;
+    }
+
+    .status.info {
+      background: #ddf4ff;
+      color: #0969da;
+      border: 1px solid #54aeff;
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Batch PR Review</h1>
+  <p class="subtitle">Review multiple PRs at once</p>
+
+  <div id="status" class="status"></div>
+
+  <div class="section">
+    <div class="section-title">PR URLs</div>
+    <textarea id="prUrls" placeholder="Enter PR URLs, one per line:
+https://github.com/owner/repo/pull/123
+https://github.com/owner/repo/pull/124
+https://github.com/owner/repo/pull/125"></textarea>
+    <div class="input-hint">Enter one GitHub PR URL per line. The extension will review each PR sequentially.</div>
+  </div>
+
+  <div class="section">
+    <button id="startBatch" class="btn-primary">Start Batch Review</button>
+    <button id="pauseBatch" class="btn-secondary" style="display: none;">Pause</button>
+    <button id="resumeBatch" class="btn-secondary" style="display: none;">Resume</button>
+    <button id="cancelBatch" class="btn-danger" style="display: none;">Cancel</button>
+  </div>
+
+  <div id="progressSection" class="section progress-section">
+    <div class="section-title">Progress</div>
+    <div class="progress-text" id="progressText">Initializing...</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+    </div>
+  </div>
+
+  <div id="resultsSection" class="section results-section">
+    <div class="section-title">Results</div>
+    <div id="resultsList"></div>
+    <div style="margin-top: 16px;">
+      <button id="exportReport" class="btn-primary">Export Combined Report</button>
+      <button id="exportJSON" class="btn-secondary">Export as JSON</button>
+    </div>
+  </div>
+
+  <script src="batch-processor.js"></script>
+  <script src="batch-ui.js"></script>
+</body>
+</html>
+
+
+
+
+
+
