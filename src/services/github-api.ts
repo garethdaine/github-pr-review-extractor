@@ -163,6 +163,59 @@ export class GitHubAPIClient {
   }
 
   /**
+   * Annotate a unified diff patch with line numbers to make LLM "line" output anchorable.
+   * - Adds NEW-file line numbers for context/addition lines.
+   * - Adds OLD-file line numbers for deletion lines (LLM should omit "line" for deletions).
+   */
+  annotatePatchWithLineNumbers(patch: string): string {
+    const lines = patch.split('\n');
+    const out: string[] = [];
+
+    let oldLine = 0;
+    let newLine = 0;
+    let inHunk = false;
+
+    for (const line of lines) {
+      const hunk = line.match(/^@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
+      if (hunk) {
+        oldLine = parseInt(hunk[1], 10);
+        newLine = parseInt(hunk[2], 10);
+        inHunk = true;
+        out.push(line);
+        continue;
+      }
+
+      if (!inHunk || line.startsWith('\\')) {
+        out.push(line);
+        continue;
+      }
+
+      const prefix = line[0];
+      const content = line.slice(1);
+
+      if (prefix === '+') {
+        out.push(`+${String(newLine).padStart(6)}|${content}`);
+        newLine += 1;
+        continue;
+      }
+
+      if (prefix === '-') {
+        // Deletions don't exist on the RIGHT/new side; omit a number to discourage anchoring.
+        out.push(`-${' '.repeat(6)}|${content}`);
+        oldLine += 1;
+        continue;
+      }
+
+      // Context line
+      out.push(` ${String(newLine).padStart(6)}|${content}`);
+      oldLine += 1;
+      newLine += 1;
+    }
+
+    return out.join('\n');
+  }
+
+  /**
    * Get PR metadata from DOM (faster than API call)
    * @returns {Object} - PR metadata
    */
