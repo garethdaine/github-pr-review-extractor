@@ -131,19 +131,21 @@ export class LLMClient {
 
     prompt += checks.join('\n');
     prompt += '\n\nFor each issue found, provide:\n';
-    prompt += '1. Line number (if applicable)\n';
+    prompt += '1. Line number (if applicable) - use the NEW-file line numbers shown in the diff (e.g. "+   123|", "    123|")\n';
     prompt += '2. Severity (CRITICAL, WARNING, or SUGGESTION)\n';
     prompt += '3. A brief title\n';
     prompt += '4. Detailed description\n';
     prompt += '5. Suggested fix\n';
     prompt += '6. Confidence score (0.0 to 1.0) - how confident you are this is a real issue\n\n';
+    prompt += 'Only set "line" when referencing a line that exists in the NEW file (diff lines starting with "+" or a space). ';
+    prompt += 'If your finding is about removed code (diff lines starting with "-"), omit "line".\n\n';
     prompt += 'Return ONLY a valid JSON array of issues (no markdown, no code fences, no extra text). ';
     prompt += 'The first character of your response must be "[" and the last character must be "]". ';
     prompt += 'If no issues are found, return an empty array: []\n\n';
     prompt += 'Example format:\n';
     prompt += '[\n';
     prompt += '  {\n';
-    prompt += '    "line": 42,\n';
+    prompt += '    "line": 123,\n';
     prompt += '    "severity": "WARNING",\n';
     prompt += '    "title": "Potential null pointer",\n';
     prompt += '    "description": "Variable may be null when accessed",\n';
@@ -189,7 +191,11 @@ export class LLMClient {
       prompt += `\n**Linked Issues:** ${context.linkedIssues.join(', ')}\n`;
     }
 
-    prompt += '\n**Code Changes:**\n```diff\n';
+    prompt += '\n**Code Changes:**\n';
+    prompt += 'Note: Diff lines are annotated with line numbers like "+   123|", "    123|". ';
+    prompt += 'Deleted lines start with "-" and do not have a NEW-file line number. ';
+    prompt += 'Use the NEW-file line number in the "line" field.\n';
+    prompt += '```diff\n';
     prompt += code;
     prompt += '\n```\n\n';
     prompt += 'Analyze this code and provide your review as a JSON array of issues with confidence scores.';

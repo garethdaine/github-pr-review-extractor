@@ -199,7 +199,7 @@ The review is just like any manual review.
 | Action | API Calls | With Token Limit |
 |--------|-----------|------------------|
 | Generate Review (5 files) | 1-2 | Plenty |
-| Post Review | 1 | Plenty |
+| Post Review | 2 + N (inline comments) | Plenty |
 | Hourly Limit | N/A | 5,000 |
 
 You're unlikely to hit the limit in normal usage!

@@ -118,9 +118,10 @@ export class ReviewEngine {
    */
   async reviewFile(file: any, prMetadata: any, checkTypes: any): Promise<Issue[]> {
     const enhancedContext = await this._buildEnhancedContext(file, prMetadata);
+    const patchForLLM = this.githubClient.annotatePatchWithLineNumbers(file.patch || '');
 
     // Check if patch needs chunking
-    const patchLines = file.patch.split('\n').length;
+    const patchLines = patchForLLM.split('\n').length;
 
     // Multi-pass review if enabled
     if (this.settings.multiPassReview !== false) {
@@ -129,10 +130,10 @@ export class ReviewEngine {
 
     if (patchLines > 150) {
       // Chunk large files
-      return await this.reviewFileChunked(file, enhancedContext, checkTypes);
+      return await this.reviewFileChunked({ ...file, patch: patchForLLM }, enhancedContext, checkTypes);
     } else {
       // Review entire file at once
-      const result = await this.llmClient.reviewCode(file.patch, enhancedContext, checkTypes);
+      const result = await this.llmClient.reviewCode(patchForLLM, enhancedContext, checkTypes);
 
       if (result.success) {
         return result.issues;
@@ -148,7 +149,8 @@ export class ReviewEngine {
    */
   async reviewFileMultiPass(file: any, context: any, checkTypes: any): Promise<Issue[]> {
     const allIssues: Issue[] = [];
-    const patchLines = file.patch.split('\n').length;
+    const patchForLLM = this.githubClient.annotatePatchWithLineNumbers(file.patch || '');
+    const patchLines = patchForLLM.split('\n').length;
     const needsChunking = patchLines > 150;
 
     // Pass 1: Critical issues only
@@ -165,9 +167,9 @@ export class ReviewEngine {
 
     let pass1Result;
     if (needsChunking) {
-      pass1Result = await this.reviewFileChunked(file, pass1Context, pass1CheckTypes, 'critical');
+      pass1Result = await this.reviewFileChunked({ ...file, patch: patchForLLM }, pass1Context, pass1CheckTypes, 'critical');
     } else {
-      pass1Result = await this.llmClient.reviewCode(file.patch, pass1Context, pass1CheckTypes, 'critical');
+      pass1Result = await this.llmClient.reviewCode(patchForLLM, pass1Context, pass1CheckTypes, 'critical');
       if (pass1Result.success) {
         pass1Result = { issues: pass1Result.issues };
       }
@@ -191,9 +193,9 @@ export class ReviewEngine {
 
     let pass2Result;
     if (needsChunking) {
-      pass2Result = await this.reviewFileChunked(file, pass2Context, pass2CheckTypes, 'warnings-suggestions');
+      pass2Result = await this.reviewFileChunked({ ...file, patch: patchForLLM }, pass2Context, pass2CheckTypes, 'warnings-suggestions');
     } else {
-      pass2Result = await this.llmClient.reviewCode(file.patch, pass2Context, pass2CheckTypes, 'warnings-suggestions');
+      pass2Result = await this.llmClient.reviewCode(patchForLLM, pass2Context, pass2CheckTypes, 'warnings-suggestions');
       if (pass2Result.success) {
         pass2Result = { issues: pass2Result.issues };
       }
