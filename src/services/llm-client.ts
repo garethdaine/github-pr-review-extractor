@@ -221,6 +221,89 @@ export class LLMClient {
     return JSON.parse(this._stripCodeFences(text));
   }
 
+  private _extractFirstJsonArray(text: string): string | null {
+    const stripped = this._stripCodeFences(text);
+    const start = stripped.indexOf('[');
+    if (start === -1) return null;
+    const after = stripped.slice(start);
+    const end = after.lastIndexOf(']');
+    if (end === -1) return after;
+    return after.slice(0, end + 1);
+  }
+
+  private _bestEffortParseJsonArray(text: string): any[] | null {
+    const candidate = this._extractFirstJsonArray(text);
+    if (!candidate) return null;
+
+    // 1) Try as-is (or up to last closing bracket)
+    try {
+      const parsed = JSON.parse(candidate);
+      return this._coerceIssues(parsed);
+    } catch {
+      // continue
+    }
+
+    // 2) If truncated, cut at the last complete object and close the array.
+    const lastObjectEnd = candidate.lastIndexOf('}');
+    if (lastObjectEnd !== -1) {
+      const fixed = candidate.slice(0, lastObjectEnd + 1) + ']';
+      try {
+        const parsed = JSON.parse(fixed);
+        return this._coerceIssues(parsed);
+      } catch {
+        // continue
+      }
+    }
+
+    // 3) Extract any complete JSON objects within the array.
+    const objects: any[] = [];
+    let depth = 0;
+    let startIndex = -1;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+
+      if (ch === '{') {
+        if (depth === 0) startIndex = i;
+        depth += 1;
+        continue;
+      }
+
+      if (ch === '}') {
+        depth -= 1;
+        if (depth === 0 && startIndex !== -1) {
+          const objText = candidate.slice(startIndex, i + 1);
+          try {
+            objects.push(JSON.parse(objText));
+          } catch {
+            // ignore
+          }
+          startIndex = -1;
+        }
+      }
+    }
+
+    return objects.length ? objects : null;
+  }
+
   private _coerceIssues(parsed: unknown): any[] | null {
     if (Array.isArray(parsed)) return parsed as any[];
     if (parsed && typeof parsed === 'object') {
@@ -237,14 +320,14 @@ export class LLMClient {
 
   private _normalizeIssue(issue: any, index: number, context: any): Issue {
     return {
-      type: 'AI Review',
-      author: 'AI Code Reviewer',
+      type: 'Review',
+      author: 'Code Reviewer',
       title: issue.title || `Issue ${index + 1}`,
       content: issue.description || issue.suggestion || '',
       filePath: context.filePath || 'Unknown file',
       codeContext: issue.line ? `Line ${issue.line}` : null,
       timestamp: new Date().toISOString(),
-      source: 'AI Code Review',
+      source: 'Code Review',
       severity: (issue.severity || 'SUGGESTION').toLowerCase(),
       outdated: false,
       isBot: true,
@@ -282,18 +365,24 @@ export class LLMClient {
         if (coerced) return coerced.map((issue, index) => this._normalizeIssue(issue, index, context));
       }
 
+      // 4) Best-effort salvage for truncated/near-JSON responses
+      const salvaged = this._bestEffortParseJsonArray(response);
+      if (salvaged && salvaged.length) {
+        return salvaged.map((issue, index) => this._normalizeIssue(issue, index, context));
+      }
+
       console.warn('No JSON array found in response');
-      // 4) Fallback: preserve response as a single suggestion
+      // 5) Fallback: preserve response as a single suggestion
       return [
         {
-          type: 'AI Review',
-          author: 'AI Code Reviewer',
-          title: 'AI review (unstructured response)',
+          type: 'Review',
+          author: 'Code Reviewer',
+          title: 'Review (unstructured response)',
           content: response.trim(),
           filePath: context.filePath || 'Unknown file',
           codeContext: null,
           timestamp: new Date().toISOString(),
-          source: 'AI Code Review',
+          source: 'Code Review',
           severity: 'suggestion',
           outdated: false,
           isBot: true,
@@ -308,14 +397,14 @@ export class LLMClient {
       console.log('Raw response:', response);
       return [
         {
-          type: 'AI Review',
-          author: 'AI Code Reviewer',
-          title: 'AI review (parse error)',
+          type: 'Review',
+          author: 'Code Reviewer',
+          title: 'Review (parse error)',
           content: response.trim(),
           filePath: context.filePath || 'Unknown file',
           codeContext: null,
           timestamp: new Date().toISOString(),
-          source: 'AI Code Review',
+          source: 'Code Review',
           severity: 'suggestion',
           outdated: false,
           isBot: true,
