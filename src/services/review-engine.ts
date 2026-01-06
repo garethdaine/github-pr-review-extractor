@@ -1,8 +1,17 @@
 // Review Engine for GitHub PR Review Extractor
 // Orchestrates AI code reviews using LLM and GitHub API
 
-class ReviewEngine {
-  constructor(settings) {
+import type { Issue } from '../types/issue';
+import { GitHubAPIClient } from './github-api';
+import { LLMClient, type ReviewFocusSeverity } from './llm-client';
+
+export class ReviewEngine {
+  private settings: any;
+  private llmClient: LLMClient;
+  private githubClient: GitHubAPIClient;
+  private maxIssuesPerFile: number;
+
+  constructor(settings: any) {
     this.settings = settings;
     this.llmClient = new LLMClient(settings);
     this.githubClient = new GitHubAPIClient(settings?.githubToken || null);
@@ -14,7 +23,7 @@ class ReviewEngine {
    * @param {Function} progressCallback - Callback for progress updates
    * @returns {Promise<Object>} - Review results
    */
-  async generateReview(progressCallback) {
+  async generateReview(progressCallback: (progress: any) => void): Promise<any> {
     try {
       // Step 1: Get PR metadata
       progressCallback({ status: 'fetching', message: 'Fetching PR data...' });
@@ -52,7 +61,7 @@ class ReviewEngine {
       }
 
       // Step 3: Review each file
-      const allIssues = [];
+      const allIssues: Issue[] = [];
       const checkTypes = {
         bugs: this.settings.checkBugs !== false,
         security: this.settings.checkSecurity !== false,
@@ -95,7 +104,7 @@ class ReviewEngine {
       console.error('Review generation error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
@@ -107,7 +116,7 @@ class ReviewEngine {
    * @param {Object} checkTypes - Types of checks to perform
    * @returns {Promise<Array>} - Array of issues
    */
-  async reviewFile(file, prMetadata, checkTypes) {
+  async reviewFile(file: any, prMetadata: any, checkTypes: any): Promise<Issue[]> {
     const enhancedContext = await this._buildEnhancedContext(file, prMetadata);
 
     // Check if patch needs chunking
@@ -137,8 +146,8 @@ class ReviewEngine {
   /**
    * Multi-pass review: Pass 1 for critical, Pass 2 for warnings/suggestions
    */
-  async reviewFileMultiPass(file, context, checkTypes) {
-    const allIssues = [];
+  async reviewFileMultiPass(file: any, context: any, checkTypes: any): Promise<Issue[]> {
+    const allIssues: Issue[] = [];
     const patchLines = file.patch.split('\n').length;
     const needsChunking = patchLines > 150;
 
@@ -165,7 +174,7 @@ class ReviewEngine {
     }
 
     if (pass1Result && pass1Result.issues) {
-      allIssues.push(...pass1Result.issues.filter(i => i.severity === 'critical'));
+      allIssues.push(...pass1Result.issues.filter((i: Issue) => i.severity === 'critical'));
     }
 
     // Pass 2: Warnings and suggestions
@@ -191,7 +200,7 @@ class ReviewEngine {
     }
 
     if (pass2Result && pass2Result.issues) {
-      allIssues.push(...pass2Result.issues.filter(i => i.severity !== 'critical'));
+      allIssues.push(...pass2Result.issues.filter((i: Issue) => i.severity !== 'critical'));
     }
 
     return this.deduplicateIssues(allIssues);
@@ -200,8 +209,8 @@ class ReviewEngine {
   /**
    * Build enhanced context with PR description, commits, file stats
    */
-  async _buildEnhancedContext(file, prMetadata) {
-    const context = {
+  async _buildEnhancedContext(file: any, prMetadata: any): Promise<any> {
+    const context: any = {
       prTitle: prMetadata.title,
       prDescription: prMetadata.description || '',
       filePath: file.filename,
@@ -214,7 +223,7 @@ class ReviewEngine {
 
     // Add commit messages if available
     if (prMetadata.commits) {
-      context.commitMessages = prMetadata.commits.map(c => c.message).join('\n');
+      context.commitMessages = prMetadata.commits.map((c: any) => c.message).join('\n');
     }
 
     // Add linked issues if available
@@ -233,21 +242,27 @@ class ReviewEngine {
    * @param {string} focusSeverity - Optional: 'critical', 'warnings-suggestions', or null
    * @returns {Promise<Array>} - Array of issues
    */
-  async reviewFileChunked(file, context, checkTypes, focusSeverity = null) {
+  async reviewFileChunked(
+    file: any,
+    context: any,
+    checkTypes: any,
+    focusSeverity: ReviewFocusSeverity = null
+  ): Promise<Issue[]> {
     const chunks = this.githubClient.chunkPatch(file.patch, 100);
-    const allIssues = [];
+    const allIssues: Issue[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
       const chunkContext = {
         ...context,
-        filePath: `${file.filename} (part ${i + 1}/${chunks.length})`
+        filePath: file.filename,
+        chunkInfo: `part ${i + 1}/${chunks.length}`
       };
 
       try {
         const result = await this.llmClient.reviewCode(chunks[i], chunkContext, checkTypes, focusSeverity);
 
         if (result.success) {
-          allIssues.push(...result.issues);
+          allIssues.push(...(result.issues as Issue[]));
         }
       } catch (error) {
         console.error(`Error reviewing chunk ${i + 1} of ${file.filename}:`, error);
@@ -263,9 +278,9 @@ class ReviewEngine {
    * @param {Array} issues - Array of issues
    * @returns {Array} - Deduplicated issues
    */
-  deduplicateIssues(issues) {
+  deduplicateIssues(issues: Issue[]): Issue[] {
     const seen = new Set();
-    const deduplicated = [];
+    const deduplicated: Issue[] = [];
 
     for (const issue of issues) {
       // Create a fingerprint based on title and file
@@ -285,8 +300,8 @@ class ReviewEngine {
    * @param {Array} files - Array of files
    * @returns {Array} - Filtered files
    */
-  filterFiles(files) {
-    return files.filter(file => {
+  filterFiles(files: any[]): any[] {
+    return files.filter((file: any) => {
       // Skip certain file types that don't need review
       const skipExtensions = ['.lock', '.min.js', '.min.css', '.svg', '.png', '.jpg', '.gif'];
       const skipPaths = ['node_modules/', 'vendor/', 'dist/', 'build/'];
@@ -313,9 +328,4 @@ class ReviewEngine {
 // Make available globally for content scripts (loaded as a separate bundle)
 if (typeof window !== 'undefined') {
   (window as any).ReviewEngine = ReviewEngine;
-}
-
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ReviewEngine;
 }

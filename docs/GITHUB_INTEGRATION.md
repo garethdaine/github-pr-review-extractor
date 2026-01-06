@@ -208,7 +208,7 @@ You're unlikely to hit the limit in normal usage!
 
 - Fetching PR data via API (when not on Files tab)
 - Posting reviews
-- Each API call in background.js
+- Each API call in `src/ui/background/background.ts`
 
 ### What Doesn't Count
 

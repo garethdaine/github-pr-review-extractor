@@ -1,6 +1,7 @@
-// Unit tests for sorters.js
+// Unit tests for sorting utilities
 
 import { describe, it, expect } from 'vitest';
+import { sortIssues } from '../../src/core/sorters';
 
 describe('Sort Issues', () => {
   const mockIssues = [
@@ -28,10 +29,7 @@ describe('Sort Issues', () => {
   ];
 
   it('should sort by severity (critical first)', () => {
-    const severityOrder = { critical: 3, warning: 2, suggestion: 1 };
-    const sorted = [...mockIssues].sort((a, b) => {
-      return severityOrder[b.severity] - severityOrder[a.severity];
-    });
+    const sorted = sortIssues(mockIssues, 'severity', 'desc');
 
     expect(sorted[0].severity).toBe('critical');
     expect(sorted[1].severity).toBe('warning');
@@ -39,9 +37,7 @@ describe('Sort Issues', () => {
   });
 
   it('should sort by file path alphabetically', () => {
-    const sorted = [...mockIssues].sort((a, b) =>
-      a.filePath.localeCompare(b.filePath)
-    );
+    const sorted = sortIssues(mockIssues, 'file', 'asc');
 
     expect(sorted[0].filePath).toBe('src/a.ts');
     expect(sorted[1].filePath).toBe('src/m.ts');
@@ -49,15 +45,12 @@ describe('Sort Issues', () => {
   });
 
   it('should sort by date (newest first)', () => {
-    const sorted = [...mockIssues].sort((a, b) => {
-      return new Date(b.timestamp) - new Date(a.timestamp);
-    });
+    const sorted = sortIssues(mockIssues, 'date', 'desc');
 
     expect(sorted[0].timestamp).toBe('2024-01-03T10:00:00Z');
     expect(sorted[2].timestamp).toBe('2024-01-01T10:00:00Z');
   });
 });
-
 
 
 

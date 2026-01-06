@@ -4,6 +4,7 @@ import esbuild from 'esbuild';
 import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isWatch = process.argv.includes('--watch');
 
 // Ensure dist directory exists
 if (!existsSync('dist')) {
@@ -80,16 +81,32 @@ const buildConfig = {
   legalComments: 'none',
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-  }
+  },
+  plugins: [
+    {
+      name: 'copy-static-files',
+      setup(build) {
+        build.onEnd(() => {
+          copyStaticFiles();
+        });
+      }
+    }
+  ]
 };
 
 async function buildExtension() {
   console.log('Building extension...');
 
   try {
-    await esbuild.build(buildConfig);
-    copyStaticFiles();
-    console.log('Build complete! Output in dist/');
+    if (isWatch) {
+      const ctx = await esbuild.context(buildConfig);
+      await ctx.watch();
+      console.log('Watching for changes...');
+      await new Promise(() => {});
+    } else {
+      await esbuild.build(buildConfig);
+      console.log('Build complete! Output in dist/');
+    }
   } catch (error) {
     console.error('Build failed:', error);
     process.exit(1);

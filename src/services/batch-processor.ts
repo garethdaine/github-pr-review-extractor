@@ -2,7 +2,7 @@
 
 import type { Issue } from '../types/issue';
 
-interface PRInfo {
+export interface PRInfo {
   url: string;
   owner: string;
   repo: string;
@@ -10,7 +10,7 @@ interface PRInfo {
   title?: string;
 }
 
-interface BatchProgress {
+export interface BatchProgress {
   current: number;
   total: number;
   currentPR: string;
@@ -18,7 +18,7 @@ interface BatchProgress {
   results: BatchResult[];
 }
 
-interface BatchResult {
+export interface BatchResult {
   prUrl: string;
   prTitle: string;
   success: boolean;
@@ -27,7 +27,7 @@ interface BatchResult {
   filesReviewed?: number;
 }
 
-class BatchProcessor {
+export class BatchProcessor {
   private progressCallback: ((progress: BatchProgress) => void) | null = null;
   private isPaused: boolean = false;
   private isCancelled: boolean = false;
@@ -316,11 +316,6 @@ class BatchProcessor {
 if (typeof window !== 'undefined') {
   (window as any).BatchProcessor = BatchProcessor;
 }
-
-export { BatchProcessor };
-export type { BatchProgress, BatchResult, PRInfo };
-
-
 
 
 

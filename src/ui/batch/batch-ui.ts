@@ -1,6 +1,6 @@
 // Batch UI controller for GitHub PR Review Extractor
 
-import type { BatchProcessor } from '../../services/batch-processor';
+import type { BatchProcessor, BatchResult } from '../../services/batch-processor';
 import type { ReviewEngine } from '../../services/review-engine';
 import type { GitHubAPIClient } from '../../services/github-api';
 
@@ -10,15 +10,6 @@ declare global {
     GitHubAPIClient: new (token: string) => GitHubAPIClient;
     BatchProcessor: new (reviewEngine: ReviewEngine, githubClient: GitHubAPIClient) => BatchProcessor;
   }
-}
-
-interface BatchResult {
-  success: boolean;
-  prUrl: string;
-  prTitle: string;
-  filesReviewed?: number;
-  issues?: any[];
-  error?: string;
 }
 
 interface ProgressInfo {
@@ -223,7 +214,6 @@ function showStatus(message: string, type: 'success' | 'error' | 'info'): void {
 document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
 });
-
 
 
 

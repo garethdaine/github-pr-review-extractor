@@ -3,8 +3,38 @@
 
 import cache, { getPRCacheKey } from '../utils/cache';
 
-class GitHubAPIClient {
-  constructor(githubToken = null) {
+export type ParsedPRUrl = { owner: string; repo: string; prNumber: number };
+
+export type FetchPRDataResult =
+  | { success: true; pr: any; files: any[] }
+  | { success: false; error: string };
+
+export type ReviewableFile = {
+  filename: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+  changes?: number;
+  patch: string;
+  sha?: string;
+  tooLarge?: boolean;
+};
+
+export type PRMetadata = {
+  title: string;
+  description: string;
+  url: string;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  commits?: Array<{ message: string }>;
+  linkedIssues?: string[];
+};
+
+export class GitHubAPIClient {
+  private githubToken: string | null;
+
+  constructor(githubToken: string | null = null) {
     this.githubToken = githubToken;
   }
 
@@ -13,7 +43,7 @@ class GitHubAPIClient {
    * @param {string} url - GitHub PR URL
    * @returns {Object} - Parsed components
    */
-  parsePRUrl(url) {
+  parsePRUrl(url: string): ParsedPRUrl | null {
     const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!match) {
       return null;
@@ -33,10 +63,10 @@ class GitHubAPIClient {
    * @param {number} prNumber - PR number
    * @returns {Promise<Object>} - PR data
    */
-  async fetchPRData(owner, repo, prNumber) {
+  async fetchPRData(owner: string, repo: string, prNumber: number): Promise<FetchPRDataResult> {
     // Check cache first
     const cacheKey = getPRCacheKey(owner, repo, prNumber);
-    const cached = cache.get(cacheKey);
+    const cached = cache.get<FetchPRDataResult>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -55,7 +85,7 @@ class GitHubAPIClient {
           success: true,
           pr: response.pr,
           files: response.files
-        };
+        } as const;
         // Cache for 10 minutes
         cache.set(cacheKey, result, 10 * 60 * 1000);
         return result;
@@ -69,7 +99,7 @@ class GitHubAPIClient {
       console.error('Fetch PR data error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
@@ -79,8 +109,8 @@ class GitHubAPIClient {
    * @param {Array} files - Array of file objects from GitHub API
    * @returns {Array} - Array of file patches
    */
-  extractFilePatches(files) {
-    return files.map(file => ({
+  extractFilePatches(files: any[]): ReviewableFile[] {
+    return files.map((file: any) => ({
       filename: file.filename,
       status: file.status,
       additions: file.additions,
@@ -97,11 +127,11 @@ class GitHubAPIClient {
    * @param {number} maxLines - Maximum lines per chunk
    * @returns {Array} - Array of patch chunks
    */
-  chunkPatch(patch, maxLines = 100) {
+  chunkPatch(patch: string, maxLines = 100): string[] {
     const lines = patch.split('\n');
-    const chunks = [];
-    let currentChunk = [];
-    let contextLines = []; // Track context lines
+    const chunks: string[] = [];
+    let currentChunk: string[] = [];
+    let contextLines: string[] = []; // Track context lines
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -150,7 +180,7 @@ class GitHubAPIClient {
         owner: parsed?.owner || '',
         repo: parsed?.repo || '',
         prNumber: parsed?.prNumber || 0
-      };
+      } as PRMetadata;
     } catch (error) {
       console.error('Failed to extract PR metadata from DOM:', error);
       return null;
@@ -162,8 +192,14 @@ class GitHubAPIClient {
    * This extracts file diffs that are visible on the page
    * @returns {Array} - Array of file diffs
    */
-  extractDiffsFromDOM() {
-    const fileDiffs = [];
+  extractDiffsFromDOM(): Array<
+    | { filename: string; patch: string }
+    | { filename: string; patch: null; tooLarge: true }
+  > {
+    const fileDiffs: Array<
+      | { filename: string; patch: string }
+      | { filename: string; patch: null; tooLarge: true }
+    > = [];
 
     try {
       const fileContainers = document.querySelectorAll('.file');
@@ -193,7 +229,7 @@ class GitHubAPIClient {
         const diffTable = container.querySelector('.diff-table');
         if (!diffTable) return;
 
-        let patchLines = [];
+        let patchLines: string[] = [];
         const rows = diffTable.querySelectorAll('tr');
 
         rows.forEach(row => {
@@ -236,13 +272,13 @@ class GitHubAPIClient {
    * @param {number} prNumber - PR number
    * @returns {Promise<Array>} - Array of files with patches
    */
-  async getReviewableFiles(owner, repo, prNumber) {
+  async getReviewableFiles(owner: string, repo: string, prNumber: number): Promise<any> {
     // Try DOM first (faster and already available)
     const domDiffs = this.extractDiffsFromDOM();
 
     // Check if we have any files that are too large
-    const largeFiles = domDiffs.filter(f => f.tooLarge);
-    const validDomFiles = domDiffs.filter(f => !f.tooLarge);
+    const largeFiles = domDiffs.filter((f): f is { filename: string; patch: null; tooLarge: true } => f.patch === null);
+    const validDomFiles = domDiffs.filter((f): f is { filename: string; patch: string } => typeof f.patch === 'string');
 
     if (largeFiles.length > 0) {
       console.log(`Found ${largeFiles.length} large files, fetching from API...`);
@@ -310,9 +346,4 @@ class GitHubAPIClient {
 // Make available globally for content scripts (loaded as a separate bundle)
 if (typeof window !== 'undefined') {
   (window as any).GitHubAPIClient = GitHubAPIClient;
-}
-
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = GitHubAPIClient;
 }

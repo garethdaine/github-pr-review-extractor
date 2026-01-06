@@ -1,27 +1,33 @@
 // Error handling utilities for GitHub PR Review Extractor
 
-/**
- * Error categories
- */
-const ErrorCategory = {
+export const ErrorCategory = {
   NETWORK: 'network',
   API: 'api',
   DOM: 'dom',
   LLM: 'llm',
   VALIDATION: 'validation',
   UNKNOWN: 'unknown'
+} as const;
+
+export type ErrorCategoryValue = typeof ErrorCategory[keyof typeof ErrorCategory];
+
+type ErrorLike = {
+  name?: string;
+  message?: string;
+  stack?: string;
 };
 
-/**
- * Categorize an error
- * @param {Error} error - The error object
- * @returns {string} - Error category
- */
-function categorizeError(error) {
-  if (!error) return ErrorCategory.UNKNOWN;
+function toErrorLike(error: unknown): ErrorLike {
+  if (error instanceof Error) return error;
+  if (typeof error === 'object' && error !== null) return error as ErrorLike;
+  return { message: String(error) };
+}
 
-  const message = error.message?.toLowerCase() || '';
-  const name = error.name?.toLowerCase() || '';
+export function categorizeError(error: unknown): ErrorCategoryValue {
+  const err = toErrorLike(error);
+
+  const message = err.message?.toLowerCase() || '';
+  const name = err.name?.toLowerCase() || '';
 
   // Network errors
   if (name === 'networkerror' || name === 'typeerror' && message.includes('network') ||
@@ -67,10 +73,17 @@ function categorizeError(error) {
  * @param {string} context - Additional context about where the error occurred
  * @returns {Object} - Object with message and suggestions
  */
-function getErrorMessage(error, context = '') {
-  const category = categorizeError(error);
-  const message = error.message || 'An unknown error occurred';
-  const suggestions = [];
+export function getErrorMessage(error: unknown, context = ''): {
+  category: ErrorCategoryValue;
+  message: string;
+  originalMessage: string;
+  suggestions: string[];
+  context: string;
+} {
+  const err = toErrorLike(error);
+  const category = categorizeError(err);
+  const message = err.message || 'An unknown error occurred';
+  const suggestions: string[] = [];
 
   let friendlyMessage = message;
 
@@ -154,8 +167,12 @@ function getErrorMessage(error, context = '') {
  * @param {number} initialDelay - Initial delay in milliseconds
  * @returns {Promise} - Result of the function
  */
-async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
-  let lastError;
+export async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  initialDelay = 1000
+): Promise<T> {
+  let lastError: unknown;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -166,7 +183,7 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
       // Don't retry on certain errors
       const category = categorizeError(error);
       if (category === ErrorCategory.VALIDATION || category === ErrorCategory.API &&
-          (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('404'))) {
+          (toErrorLike(error).message?.includes('401') || toErrorLike(error).message?.includes('403') || toErrorLike(error).message?.includes('404'))) {
         throw error;
       }
 
@@ -188,7 +205,7 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
  * @param {string} context - Context where error occurred
  * @param {Object} metadata - Additional metadata
  */
-function logError(error, context = '', metadata = {}) {
+export function logError(error: unknown, context = '', metadata: Record<string, unknown> = {}) {
   const errorInfo = getErrorMessage(error, context);
 
   console.error('Error:', {
@@ -197,7 +214,7 @@ function logError(error, context = '', metadata = {}) {
     originalMessage: errorInfo.originalMessage,
     context,
     metadata,
-    stack: error.stack,
+    stack: toErrorLike(error).stack,
     timestamp: new Date().toISOString()
   });
 
@@ -210,7 +227,7 @@ function logError(error, context = '', metadata = {}) {
  * @param {string} context - Context where error occurred
  * @returns {string} - Formatted error message for UI
  */
-function formatErrorForUI(error, context = '') {
+export function formatErrorForUI(error: unknown, context = ''): string {
   const errorInfo = getErrorMessage(error, context);
   let message = errorInfo.message;
 
@@ -221,9 +238,9 @@ function formatErrorForUI(error, context = '') {
   return message;
 }
 
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
+// Expose globally for debugging/legacy usage
+if (typeof window !== 'undefined') {
+  (window as any).errorHandler = {
     categorizeError,
     getErrorMessage,
     retryWithBackoff,
@@ -232,4 +249,3 @@ if (typeof module !== 'undefined' && module.exports) {
     ErrorCategory
   };
 }
-

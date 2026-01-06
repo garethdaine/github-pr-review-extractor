@@ -1,8 +1,19 @@
 // LLM Client for GitHub PR Review Extractor
 // OpenAI-compatible client for local LLM
 
-class LLMClient {
-  constructor(settings) {
+import type { Issue } from '../types/issue';
+
+export type ReviewFocusSeverity = 'critical' | 'warnings-suggestions' | null;
+
+export class LLMClient {
+  private endpoint: string;
+  private apiKey: string;
+  private modelName: string;
+  private maxTokens: number;
+  private temperature: number;
+  private settings: any;
+
+  constructor(settings: any) {
     this.endpoint = settings.llmEndpoint;
     this.apiKey = settings.apiKey;
     this.modelName = settings.modelName;
@@ -17,7 +28,7 @@ class LLMClient {
    * @param {Object} options - Optional parameters (maxTokens, temperature, etc.)
    * @returns {Promise<Object>} - Response from LLM
    */
-  async chat(messages, options = {}) {
+  async chat(messages: any[], options: { maxTokens?: number; temperature?: number } = {}): Promise<any> {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'CALL_LLM',
@@ -45,7 +56,7 @@ class LLMClient {
       console.error('LLM chat error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
@@ -58,7 +69,12 @@ class LLMClient {
    * @param {string} focusSeverity - Optional: 'critical', 'warnings-suggestions', or null
    * @returns {Promise<Object>} - Review results
    */
-  async reviewCode(code, context, checkTypes, focusSeverity = null) {
+  async reviewCode(
+    code: string,
+    context: any,
+    checkTypes: any,
+    focusSeverity: ReviewFocusSeverity = null
+  ): Promise<any> {
     const systemPrompt = this._buildSystemPrompt(checkTypes, focusSeverity);
     const userPrompt = this._buildReviewPrompt(code, context);
 
@@ -85,7 +101,7 @@ class LLMClient {
   /**
    * Build system prompt based on check types and custom prompt
    */
-  _buildSystemPrompt(checkTypes, focusSeverity = null) {
+  _buildSystemPrompt(checkTypes: any, focusSeverity: ReviewFocusSeverity = null): string {
     // Use custom prompt if provided
     if (this.settings.customSystemPrompt) {
       return this.settings.customSystemPrompt;
@@ -121,7 +137,8 @@ class LLMClient {
     prompt += '4. Detailed description\n';
     prompt += '5. Suggested fix\n';
     prompt += '6. Confidence score (0.0 to 1.0) - how confident you are this is a real issue\n\n';
-    prompt += 'Format your response as a JSON array of issues. ';
+    prompt += 'Return ONLY a valid JSON array of issues (no markdown, no code fences, no extra text). ';
+    prompt += 'The first character of your response must be "[" and the last character must be "]". ';
     prompt += 'If no issues are found, return an empty array: []\n\n';
     prompt += 'Example format:\n';
     prompt += '[\n';
@@ -141,7 +158,7 @@ class LLMClient {
   /**
    * Build review prompt with enhanced context
    */
-  _buildReviewPrompt(code, context) {
+  _buildReviewPrompt(code: string, context: any): string {
     let prompt = 'Review the following code change:\n\n';
 
     if (context.prTitle) {
@@ -154,6 +171,10 @@ class LLMClient {
 
     if (context.filePath) {
       prompt += `**File:** ${context.filePath}\n`;
+    }
+
+    if (context.chunkInfo) {
+      prompt += `**Chunk:** ${context.chunkInfo}\n`;
     }
 
     if (context.fileStats) {
@@ -179,46 +200,132 @@ class LLMClient {
   /**
    * Parse LLM response into structured issues
    */
-  _parseReviewResponse(response, context) {
+  private _stripCodeFences(text: string): string {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('```')) {
+      return trimmed
+        .replace(/^```[a-zA-Z0-9_-]*\s*/m, '')
+        .replace(/```$/m, '')
+        .trim();
+    }
+    return trimmed;
+  }
+
+  private _tryParseJson(text: string): unknown {
+    return JSON.parse(this._stripCodeFences(text));
+  }
+
+  private _coerceIssues(parsed: unknown): any[] | null {
+    if (Array.isArray(parsed)) return parsed as any[];
+    if (parsed && typeof parsed === 'object') {
+      const obj = parsed as any;
+      if (Array.isArray(obj.issues)) return obj.issues;
+      if (Array.isArray(obj.items)) return obj.items;
+      if (Array.isArray(obj.comments)) return obj.comments;
+      if (typeof obj.title === 'string' || typeof obj.description === 'string' || typeof obj.suggestion === 'string') {
+        return [obj];
+      }
+    }
+    return null;
+  }
+
+  private _normalizeIssue(issue: any, index: number, context: any): Issue {
+    return {
+      type: 'AI Review',
+      author: 'AI Code Reviewer',
+      title: issue.title || `Issue ${index + 1}`,
+      content: issue.description || issue.suggestion || '',
+      filePath: context.filePath || 'Unknown file',
+      codeContext: issue.line ? `Line ${issue.line}` : null,
+      timestamp: new Date().toISOString(),
+      source: 'AI Code Review',
+      severity: (issue.severity || 'SUGGESTION').toLowerCase(),
+      outdated: false,
+      isBot: true,
+      isHuman: false,
+      suggestion: issue.suggestion || '',
+      line: issue.line || null,
+      confidence: typeof issue.confidence === 'number' ? Math.max(0, Math.min(1, issue.confidence)) : 0.7
+    };
+  }
+
+  _parseReviewResponse(response: string, context: any): Issue[] {
     try {
-      // Try to extract JSON from the response
-      let jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        console.warn('No JSON array found in response');
-        return [];
+      // 1) Parse whole response (raw JSON or fenced JSON)
+      try {
+        const parsed = this._tryParseJson(response);
+        const coerced = this._coerceIssues(parsed);
+        if (coerced) return coerced.map((issue, index) => this._normalizeIssue(issue, index, context));
+      } catch {
+        // continue
       }
 
-      const issues = JSON.parse(jsonMatch[0]);
+      // 2) Extract JSON array anywhere
+      const arrayMatch = response.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        const parsed = JSON.parse(arrayMatch[0]);
+        const coerced = this._coerceIssues(parsed) || [];
+        return coerced.map((issue, index) => this._normalizeIssue(issue, index, context));
+      }
 
-      // Validate and enhance each issue with confidence scores
-      return issues.map((issue, index) => ({
-        type: 'AI Review',
-        author: 'AI Code Reviewer',
-        title: issue.title || `Issue ${index + 1}`,
-        content: issue.description || issue.suggestion || '',
-        filePath: context.filePath || 'Unknown file',
-        codeContext: issue.line ? `Line ${issue.line}` : null,
-        timestamp: new Date().toISOString(),
-        source: 'AI Code Review',
-        severity: (issue.severity || 'SUGGESTION').toLowerCase(),
-        outdated: false,
-        isBot: true,
-        isHuman: false,
-        suggestion: issue.suggestion || '',
-        line: issue.line || null,
-        confidence: typeof issue.confidence === 'number' ? Math.max(0, Math.min(1, issue.confidence)) : 0.7 // Default to 0.7 if not provided
-      }));
+      // 3) Extract JSON object anywhere (possibly containing { issues: [...] })
+      const objectMatch = response.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        const parsed = JSON.parse(objectMatch[0]);
+        const coerced = this._coerceIssues(parsed);
+        if (coerced) return coerced.map((issue, index) => this._normalizeIssue(issue, index, context));
+      }
+
+      console.warn('No JSON array found in response');
+      // 4) Fallback: preserve response as a single suggestion
+      return [
+        {
+          type: 'AI Review',
+          author: 'AI Code Reviewer',
+          title: 'AI review (unstructured response)',
+          content: response.trim(),
+          filePath: context.filePath || 'Unknown file',
+          codeContext: null,
+          timestamp: new Date().toISOString(),
+          source: 'AI Code Review',
+          severity: 'suggestion',
+          outdated: false,
+          isBot: true,
+          isHuman: false,
+          suggestion: '',
+          line: null,
+          confidence: 0.3
+        }
+      ];
     } catch (error) {
       console.error('Failed to parse LLM response:', error);
       console.log('Raw response:', response);
-      return [];
+      return [
+        {
+          type: 'AI Review',
+          author: 'AI Code Reviewer',
+          title: 'AI review (parse error)',
+          content: response.trim(),
+          filePath: context.filePath || 'Unknown file',
+          codeContext: null,
+          timestamp: new Date().toISOString(),
+          source: 'AI Code Review',
+          severity: 'suggestion',
+          outdated: false,
+          isBot: true,
+          isHuman: false,
+          suggestion: '',
+          line: null,
+          confidence: 0.2
+        }
+      ];
     }
   }
 
   /**
    * Test connection to LLM
    */
-  async testConnection() {
+  async testConnection(): Promise<any> {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'TEST_LLM_CONNECTION',
@@ -231,7 +338,7 @@ class LLMClient {
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
@@ -240,9 +347,4 @@ class LLMClient {
 // Make available globally for content scripts (loaded as a separate bundle)
 if (typeof window !== 'undefined') {
   (window as any).LLMClient = LLMClient;
-}
-
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = LLMClient;
 }
