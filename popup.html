@@ -291,14 +291,19 @@
   <div style="position: absolute; top: 8px; right: 8px;">
     <button id="themeToggle" class="secondary small" style="width: auto; padding: 4px 8px; font-size: 11px;" title="Toggle dark mode">🌓</button>
   </div>
-  <h1>📝 GitHub PR Review Extractor</h1>
-  <p class="description">Extract all review comments from this PR (bots and humans).</p>
+  <h1 id="popupTitle">📝 GitHub PR Review Extractor</h1>
+  <p id="popupDescription" class="description">Extract all review comments from this PR (bots and humans).</p>
 
   <div class="section">
     <button id="extractBtn">Extract All Issues</button>
     <button id="generateReviewBtn" class="secondary" style="margin-top: 4px;">🤖 Generate AI Review</button>
     <button id="previewPostBtn" class="secondary" style="margin-top: 4px; display: none;">👁️ Preview & Post to GitHub</button>
     <button id="postToGitHubBtn" class="secondary" style="margin-top: 4px; display: none;">📤 Post AI Review to GitHub</button>
+    <div style="display: flex; gap: 6px; margin-top: 8px;">
+      <button id="openHistoryBtn" class="secondary small" style="width: auto; flex: 1;">📚 History</button>
+      <button id="openAnalyticsBtn" class="secondary small" style="width: auto; flex: 1;">📊 Analytics</button>
+      <button id="openBatchBtn" class="secondary small" style="width: auto; flex: 1;">🔄 Batch</button>
+    </div>
   </div>
 
   <!-- Preview Modal -->

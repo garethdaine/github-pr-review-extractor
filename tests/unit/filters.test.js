@@ -1,9 +1,7 @@
-// Unit tests for filters.js
+// Unit tests for filter utilities
 
-import { describe, it, expect, beforeEach } from 'vitest';
-
-// Mock the filterIssues function (in a real setup, we'd import it)
-// For now, we'll test the logic
+import { describe, it, expect } from 'vitest';
+import { filterIssues, validateFilterOptions } from '../../src/core/filters';
 
 describe('Filter Issues', () => {
   const mockIssues = [
@@ -43,41 +41,42 @@ describe('Filter Issues', () => {
   ];
 
   it('should filter by severity', () => {
-    const filtered = mockIssues.filter(issue => issue.severity === 'critical');
+    const filtered = filterIssues(mockIssues, { severity: 'critical' });
     expect(filtered).toHaveLength(1);
     expect(filtered[0].title).toBe('Security issue');
   });
 
   it('should filter by author type', () => {
-    const botIssues = mockIssues.filter(issue => issue.isBot === true);
+    const botIssues = filterIssues(mockIssues, { authorType: 'bot' });
     expect(botIssues).toHaveLength(2);
 
-    const humanIssues = mockIssues.filter(issue => issue.isHuman === true);
+    const humanIssues = filterIssues(mockIssues, { authorType: 'human' });
     expect(humanIssues).toHaveLength(1);
   });
 
   it('should filter out outdated issues', () => {
-    const activeIssues = mockIssues.filter(issue => !issue.outdated);
+    const activeIssues = filterIssues(mockIssues, { excludeOutdated: true });
     expect(activeIssues).toHaveLength(2);
   });
 
   it('should filter by file path', () => {
-    const tsFiles = mockIssues.filter(issue => issue.filePath.endsWith('.ts'));
+    const tsFiles = filterIssues(mockIssues, { filePaths: ['\\.ts$'] });
     expect(tsFiles).toHaveLength(1);
     expect(tsFiles[0].filePath).toBe('src/utils.ts');
   });
 
   it('should search in content', () => {
-    const query = 'security';
-    const results = mockIssues.filter(issue =>
-      issue.content.toLowerCase().includes(query.toLowerCase()) ||
-      issue.title.toLowerCase().includes(query.toLowerCase())
-    );
+    const results = filterIssues(mockIssues, { searchQuery: 'security' });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Security issue');
   });
-});
 
+  it('should validate filter options', () => {
+    expect(validateFilterOptions({ severity: 'critical' }).isValid).toBe(true);
+    expect(validateFilterOptions({ severity: 'nope' }).isValid).toBe(false);
+    expect(validateFilterOptions({ authorType: 'robot' }).isValid).toBe(false);
+  });
+});
 
 
 

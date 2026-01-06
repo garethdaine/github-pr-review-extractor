@@ -111,7 +111,7 @@ order and screen readers won't announce them as disabled.
 ## Next Steps
 
 - Check out `README.md` for full documentation
-- Customize extraction patterns in `content.js`
+- Customize extraction patterns in `src/core/extractor.ts`
 - Report issues or suggest improvements
 
 Happy coding! 🚀

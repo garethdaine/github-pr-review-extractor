@@ -1,13 +1,70 @@
-let extractedIssues = [];
-let aiGeneratedIssues = [];
-let currentFilterOptions = { excludeOutdated: true };
+import type { FilterOptions, Issue } from '../../types/issue';
+import { FILTER_PRESETS } from '../../core/filter-presets';
+import { filterIssues as filterIssuesUtil } from '../../core/filters';
+import { sortIssues as sortIssuesUtil } from '../../core/sorters';
+import { initI18n, t } from '../../utils/i18n';
+
+type ReviewHistoryApi = {
+  saveReviewToHistory: (data: {
+    prUrl: string;
+    prTitle?: string;
+    extractedIssues?: Issue[];
+    aiGeneratedIssues?: Issue[];
+    exportedFormats?: string[];
+  }) => Promise<unknown>;
+};
+
+function getEl<T extends HTMLElement>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Element with id "${id}" not found`);
+  return element as T;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function getReviewHistoryApi(): ReviewHistoryApi | null {
+  return (window as any).reviewHistory?.saveReviewToHistory ? ((window as any).reviewHistory as ReviewHistoryApi) : null;
+}
+
+function openExtensionPage(pagePath: string): void {
+  chrome.tabs.create({ url: chrome.runtime.getURL(pagePath) });
+}
+
+let extractedIssues: Issue[] = [];
+let aiGeneratedIssues: Issue[] = [];
+let currentFilterOptions: FilterOptions = { excludeOutdated: true };
 let currentSortBy = 'severity-desc';
 let currentTheme = 'light';
 
 // Initialize theme on load
 document.addEventListener('DOMContentLoaded', async () => {
+  await initI18n();
+  applyPopupTranslations();
   await initializeTheme();
 });
+
+function applyPopupTranslations(): void {
+  const title = document.getElementById('popupTitle');
+  if (title) title.textContent = `📝 ${t('extensionName')}`;
+
+  const description = document.getElementById('popupDescription');
+  if (description) description.textContent = t('extensionDescription');
+
+  const extractBtn = document.getElementById('extractBtn');
+  if (extractBtn) extractBtn.textContent = t('extractAllIssues');
+
+  const generateReviewBtn = document.getElementById('generateReviewBtn');
+  if (generateReviewBtn) generateReviewBtn.textContent = t('generateAIReview');
+
+  const previewPostBtn = document.getElementById('previewPostBtn');
+  if (previewPostBtn) previewPostBtn.textContent = t('previewPostToGitHub');
+
+  const postToGitHubBtn = document.getElementById('postToGitHubBtn');
+  if (postToGitHubBtn) postToGitHubBtn.textContent = t('postToGitHub');
+}
 
 async function initializeTheme() {
   // Check for saved theme preference or default to system preference
@@ -43,7 +100,7 @@ async function initializeTheme() {
   }
 }
 
-function applyTheme(theme) {
+function applyTheme(theme: string) {
   document.documentElement.setAttribute('data-theme', theme);
   currentTheme = theme;
 }
@@ -59,6 +116,7 @@ function updateThemeToggleIcon() {
   const themeToggle = document.getElementById('themeToggle');
   if (themeToggle) {
     themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+    themeToggle.setAttribute('title', t('toggleDarkMode'));
   }
 }
 
@@ -98,9 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterPreset = document.getElementById('filterPreset');
   if (filterPreset) {
     filterPreset.addEventListener('change', (e) => {
-      if (e.target.value) {
-        applyPreset(e.target.value);
-      }
+      const target = e.target as HTMLSelectElement | null;
+      if (!target?.value) return;
+      applyPreset(target.value);
     });
   }
 
@@ -114,7 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortBySelect = document.getElementById('sortBy');
   if (sortBySelect) {
     sortBySelect.addEventListener('change', (e) => {
-      currentSortBy = e.target.value;
+      const target = e.target as HTMLSelectElement | null;
+      if (!target?.value) return;
+      currentSortBy = target.value;
       if (extractedIssues.length > 0) {
         renderIssuesList(extractedIssues, currentFilterOptions);
       }
@@ -123,72 +183,68 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Debounce helper function
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+function debounce(func: () => void, wait: number) {
+  let timeoutId: number | undefined;
+  return function executedFunction() {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(() => func(), wait);
   };
 }
 
 // Apply filter preset
-function applyPreset(presetKey) {
+function applyPreset(presetKey: string) {
   const preset = FILTER_PRESETS[presetKey];
   if (!preset) return;
 
   // Apply preset options to form controls
   if (preset.options.excludeOutdated !== undefined) {
-    document.getElementById('excludeOutdated').checked = preset.options.excludeOutdated;
+    getEl<HTMLInputElement>('excludeOutdated').checked = preset.options.excludeOutdated;
   }
 
   if (preset.options.severity) {
-    const severitySelect = document.getElementById('severityFilter');
+    const severitySelect = getEl<HTMLSelectElement>('severityFilter');
     if (Array.isArray(preset.options.severity)) {
       severitySelect.value = preset.options.severity.join(',');
     } else {
-      severitySelect.value = preset.options.severity;
+      severitySelect.value = preset.options.severity as string;
     }
   } else {
-    document.getElementById('severityFilter').value = '';
+    getEl<HTMLSelectElement>('severityFilter').value = '';
   }
 
   if (preset.options.authorType) {
-    document.getElementById('authorTypeFilter').value = preset.options.authorType;
+    getEl<HTMLSelectElement>('authorTypeFilter').value = preset.options.authorType;
   } else {
-    document.getElementById('authorTypeFilter').value = '';
+    getEl<HTMLSelectElement>('authorTypeFilter').value = '';
   }
 
   // Apply the filters
   applyFilters();
 
   // Reset preset selector
-  document.getElementById('filterPreset').value = '';
+  getEl<HTMLSelectElement>('filterPreset').value = '';
 }
 
 // Clear all filters
 function clearAllFilters() {
-  document.getElementById('excludeOutdated').checked = true;
-  document.getElementById('severityFilter').value = '';
-  document.getElementById('authorTypeFilter').value = '';
-  document.getElementById('filePathFilter').value = '';
-  document.getElementById('searchQuery').value = '';
-  document.getElementById('filterPreset').value = '';
+  getEl<HTMLInputElement>('excludeOutdated').checked = true;
+  getEl<HTMLSelectElement>('severityFilter').value = '';
+  getEl<HTMLSelectElement>('authorTypeFilter').value = '';
+  getEl<HTMLInputElement>('filePathFilter').value = '';
+  getEl<HTMLInputElement>('searchQuery').value = '';
+  getEl<HTMLSelectElement>('filterPreset').value = '';
 
   currentFilterOptions = { excludeOutdated: true };
   applyFilters();
 }
 
 // Get current filter options from UI
-function getCurrentFilterOptions() {
-  const options = {
-    excludeOutdated: document.getElementById('excludeOutdated').checked
+function getCurrentFilterOptions(): FilterOptions {
+  const options: FilterOptions = {
+    excludeOutdated: getEl<HTMLInputElement>('excludeOutdated').checked
   };
 
-  const severityValue = document.getElementById('severityFilter').value;
+  const severityValue = getEl<HTMLSelectElement>('severityFilter').value;
   if (severityValue) {
     if (severityValue.includes(',')) {
       options.severity = severityValue.split(',');
@@ -197,17 +253,17 @@ function getCurrentFilterOptions() {
     }
   }
 
-  const authorTypeValue = document.getElementById('authorTypeFilter').value;
+  const authorTypeValue = getEl<HTMLSelectElement>('authorTypeFilter').value;
   if (authorTypeValue) {
-    options.authorType = authorTypeValue;
+    options.authorType = authorTypeValue as FilterOptions['authorType'];
   }
 
-  const filePathValue = document.getElementById('filePathFilter').value.trim();
+  const filePathValue = getEl<HTMLInputElement>('filePathFilter').value.trim();
   if (filePathValue) {
     options.filePaths = [filePathValue];
   }
 
-  const searchValue = document.getElementById('searchQuery').value.trim();
+  const searchValue = getEl<HTMLInputElement>('searchQuery').value.trim();
   if (searchValue) {
     options.searchQuery = searchValue;
   }
@@ -224,19 +280,20 @@ async function applyFilters() {
   // Re-extract with new filter options
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !tab.url) return;
     if (!tab.url.includes('github.com') || !tab.url.includes('/pull/')) return;
 
     chrome.tabs.sendMessage(tab.id, {
       action: 'extractIssues',
       format: 'grouped',
       filterOptions: currentFilterOptions
-    }, (response) => {
+    }, (response: any) => {
       if (response && response.success) {
         updateFilterStats(response.totalCount, response.outdatedCount, response.count);
         renderIssuesList(extractedIssues, currentFilterOptions);
 
         // Update format buttons to use new filter
-        if (document.getElementById('formatSection').style.display !== 'none') {
+        if (getEl<HTMLElement>('formatSection').style.display !== 'none') {
           // Format section is visible, filters will be applied on next copy
         }
       }
@@ -247,8 +304,9 @@ async function applyFilters() {
 }
 
 
-function updateFilterStats(totalCount, outdatedCount, filteredCount = null) {
+function updateFilterStats(totalCount: number, outdatedCount: number, filteredCount: number | null = null) {
   const statsDiv = document.getElementById('filterStats');
+  if (!statsDiv) return;
   let statsText = '';
 
   if (filteredCount !== null && filteredCount !== totalCount) {
@@ -315,11 +373,25 @@ document.addEventListener('DOMContentLoaded', () => {
       await handlePostToGitHub(false);
     });
   }
+
+  const openHistoryBtn = document.getElementById('openHistoryBtn');
+  if (openHistoryBtn) {
+    openHistoryBtn.addEventListener('click', () => openExtensionPage('history.html'));
+  }
+
+  const openAnalyticsBtn = document.getElementById('openAnalyticsBtn');
+  if (openAnalyticsBtn) {
+    openAnalyticsBtn.addEventListener('click', () => openExtensionPage('analytics.html'));
+  }
+
+  const openBatchBtn = document.getElementById('openBatchBtn');
+  if (openBatchBtn) {
+    openBatchBtn.addEventListener('click', () => openExtensionPage('batch-ui.html'));
+  }
 });
 
 async function handleExtract() {
-  const button = document.getElementById('extractBtn');
-  const status = document.getElementById('status');
+  const button = getEl<HTMLButtonElement>('extractBtn');
 
   button.disabled = true;
   button.textContent = 'Extracting...';
@@ -327,12 +399,15 @@ async function handleExtract() {
   try {
     // Get the active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !tab.url) {
+      throw new Error('No active tab found');
+    }
 
     // Check if we're on a GitHub PR page
     if (!tab.url.includes('github.com') || !tab.url.includes('/pull/')) {
       showStatus('Please navigate to a GitHub Pull Request page.\n\n• Make sure the URL contains /pull/\n• Refresh the page if you just navigated to a PR', 'error');
       button.disabled = false;
-      button.textContent = 'Extract All Issues';
+      button.textContent = t('extractAllIssues');
       return;
     }
 
@@ -341,20 +416,20 @@ async function handleExtract() {
     const filterOptions = currentFilterOptions;
 
     // Send message to content script to extract issues
-    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'grouped', filterOptions }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'grouped', filterOptions }, (response: any) => {
       if (chrome.runtime.lastError) {
         showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
         button.disabled = false;
-        button.textContent = 'Extract All Issues';
+        button.textContent = t('extractAllIssues');
         return;
       }
 
       if (response.success) {
-        extractedIssues = response.issues || [];
+        extractedIssues = (response.issues || []) as Issue[];
 
         // Show filter section if there are issues
         if (response.totalCount > 0) {
-          document.getElementById('filterSection').style.display = 'block';
+          getEl<HTMLElement>('filterSection').style.display = 'block';
           updateFilterStats(response.totalCount, response.outdatedCount);
         }
 
@@ -366,28 +441,29 @@ async function handleExtract() {
         } else {
           showStatus(`✓ Found ${response.count} comment${response.count !== 1 ? 's' : ''}!`, 'success');
           // Show format options and issues list
-          document.getElementById('formatSection').style.display = 'block';
-          document.getElementById('issuesSection').style.display = 'block';
+          getEl<HTMLElement>('formatSection').style.display = 'block';
+          getEl<HTMLElement>('issuesSection').style.display = 'block';
           renderIssuesList(extractedIssues, currentFilterOptions);
           // Auto-copy default format
           copyToClipboard(response.text, 'Grouped format copied to clipboard!');
 
           // Save to history (defer to avoid blocking UI)
           setTimeout(async () => {
-            if (typeof saveReviewToHistory === 'function') {
-              try {
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                const prTitle = tab.title?.replace(' · Pull Request #', ' - PR #') || 'PR';
-                await saveReviewToHistory({
-                  prUrl: tab.url,
-                  prTitle: prTitle,
-                  extractedIssues: extractedIssues,
-                  aiGeneratedIssues: [],
-                  exportedFormats: ['grouped']
-                });
-              } catch (error) {
-                console.error('Failed to save to history:', error);
-              }
+            const historyApi = getReviewHistoryApi();
+            if (!historyApi) return;
+            try {
+              const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+              const prTitle = activeTab?.title?.replace(' · Pull Request #', ' - PR #') || 'PR';
+              if (!activeTab?.url) return;
+              await historyApi.saveReviewToHistory({
+                prUrl: activeTab.url,
+                prTitle,
+                extractedIssues,
+                aiGeneratedIssues: [],
+                exportedFormats: ['grouped']
+              });
+            } catch (error) {
+              console.error('Failed to save to history:', error);
             }
           }, 100);
         }
@@ -396,21 +472,22 @@ async function handleExtract() {
       }
 
       button.disabled = false;
-      button.textContent = 'Extract All Issues';
+      button.textContent = t('extractAllIssues');
     });
   } catch (error) {
-    showStatus('Error: ' + error.message, 'error');
+    showStatus('Error: ' + getErrorMessage(error), 'error');
     button.disabled = false;
-    button.textContent = 'Extract All Issues';
+    button.textContent = t('extractAllIssues');
   }
 }
 
-async function copyFormat(format, successMessage) {
+async function copyFormat(format: string, successMessage: string) {
   try {
     const filterOptions = getCurrentFilterOptions();
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: format, filterOptions }, (response) => {
+    if (!tab?.id) throw new Error('No active tab found');
+    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: format, filterOptions }, (response: any) => {
       if (response.success) {
         copyToClipboard(response.text, successMessage);
       } else {
@@ -418,7 +495,7 @@ async function copyFormat(format, successMessage) {
       }
     });
   } catch (error) {
-    showStatus('Error: ' + error.message, 'error');
+    showStatus('Error: ' + getErrorMessage(error), 'error');
   }
 }
 
@@ -428,7 +505,8 @@ async function exportAsPDF() {
     const filterOptions = getCurrentFilterOptions();
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'html', filterOptions }, async (response) => {
+    if (!tab?.id) throw new Error('No active tab found');
+    chrome.tabs.sendMessage(tab.id, { action: 'extractIssues', format: 'html', filterOptions }, async (response: any) => {
       if (response.success) {
         // Create a blob from HTML
         const blob = new Blob([response.text], { type: 'text/html' });
@@ -459,76 +537,23 @@ async function exportAsPDF() {
       }
     });
   } catch (error) {
-    showStatus('Error: ' + error.message, 'error');
+    showStatus('Error: ' + getErrorMessage(error), 'error');
   }
 }
 
-function renderIssuesList(issues, filterOptions = null) {
-  const issuesList = document.getElementById('issuesList');
+function renderIssuesList(issues: Issue[], filterOptions: FilterOptions | null = null) {
+  const issuesList = getEl<HTMLElement>('issuesList');
   issuesList.innerHTML = '';
   issuesList.style.display = 'block';
 
   // Determine filter options
-  const options = filterOptions || currentFilterOptions || { excludeOutdated: false };
+  const options = filterOptions || currentFilterOptions || {};
+  let displayIssues = filterIssuesUtil(issues, options);
 
-  // Filter issues for display using the same logic as content.js
-  let displayIssues = [...issues];
-
-  if (options.excludeOutdated) {
-    displayIssues = displayIssues.filter(i => !i.outdated);
-  }
-
-  if (options.severity) {
-    if (Array.isArray(options.severity)) {
-      displayIssues = displayIssues.filter(i => options.severity.includes(i.severity));
-    } else {
-      displayIssues = displayIssues.filter(i => i.severity === options.severity);
-    }
-  }
-
-  if (options.authorType) {
-    if (options.authorType === 'bot') {
-      displayIssues = displayIssues.filter(i => i.isBot === true);
-    } else if (options.authorType === 'human') {
-      displayIssues = displayIssues.filter(i => i.isHuman === true);
-    } else if (options.authorType === 'copilot') {
-      displayIssues = displayIssues.filter(i => i.type === 'GitHub Copilot AI');
-    } else if (options.authorType === 'cursor') {
-      displayIssues = displayIssues.filter(i => i.type === 'Cursor Bot');
-    }
-  }
-
-  if (options.filePaths && Array.isArray(options.filePaths) && options.filePaths.length > 0) {
-    displayIssues = displayIssues.filter(issue => {
-      return options.filePaths.some(pattern => {
-        try {
-          const regex = new RegExp(pattern);
-          return regex.test(issue.filePath);
-        } catch (e) {
-          return issue.filePath.includes(pattern);
-        }
-      });
-    });
-  }
-
-  if (options.searchQuery && options.searchQuery.trim()) {
-    const query = options.searchQuery.toLowerCase().trim();
-    displayIssues = displayIssues.filter(issue => {
-      const searchableText = [
-        issue.title || '',
-        issue.content || '',
-        issue.filePath || '',
-        issue.author || ''
-      ].join(' ').toLowerCase();
-      return searchableText.includes(query);
-    });
-  }
-
-  // Apply sorting
-  if (typeof sortIssues === 'function') {
-    const [sortField, sortOrder] = currentSortBy.split('-');
-    displayIssues = sortIssues(displayIssues, sortField, sortOrder);
-  }
+  const [sortFieldRaw, sortOrderRaw] = currentSortBy.split('-');
+  const sortField = sortFieldRaw || 'severity';
+  const sortOrder = sortOrderRaw === 'asc' ? 'asc' : 'desc';
+  displayIssues = sortIssuesUtil(displayIssues, sortField, sortOrder);
 
   // Create mapping for original indices in issues array
   displayIssues.forEach((issue, displayIndex) => {
@@ -566,9 +591,10 @@ function renderIssuesList(issues, filterOptions = null) {
   });
 
   // Add event listeners to copy buttons
-  document.querySelectorAll('.copy-single').forEach(button => {
-    button.addEventListener('click', async (e) => {
-      const originalIndex = parseInt(e.target.getAttribute('data-original-index'));
+  document.querySelectorAll<HTMLButtonElement>('.copy-single').forEach((buttonEl) => {
+    buttonEl.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const originalIndex = parseInt(target.getAttribute('data-original-index') || '', 10);
       if (isNaN(originalIndex) || originalIndex < 0 || !extractedIssues[originalIndex]) {
         console.error('Invalid issue index:', originalIndex);
         return;
@@ -577,30 +603,31 @@ function renderIssuesList(issues, filterOptions = null) {
 
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) throw new Error('No active tab found');
         chrome.tabs.sendMessage(tab.id, {
           action: 'formatSingleIssue',
           issue: issue,
-          index: index
-        }, (response) => {
+          index: originalIndex
+        }, (response: any) => {
           if (response.success) {
-            copyToClipboard(response.text, `Issue #${index + 1} copied!`);
+            copyToClipboard(response.text, `Issue #${originalIndex + 1} copied!`);
           }
         });
       } catch (error) {
-        showStatus('Error: ' + error.message, 'error');
+        showStatus('Error: ' + getErrorMessage(error), 'error');
       }
     });
   });
 }
 
 // Helper to escape HTML (simple version for popup.js)
-function escapeHtml(text) {
+function escapeHtml(text: string) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-function copyToClipboard(text, successMessage) {
+function copyToClipboard(text: string, successMessage: string) {
   navigator.clipboard.writeText(text).then(() => {
     showStatus(successMessage, 'success');
   }).catch(err => {
@@ -608,8 +635,10 @@ function copyToClipboard(text, successMessage) {
   });
 }
 
-function showStatus(message, type) {
-  const status = document.getElementById('status');
+type StatusType = 'success' | 'error' | 'info';
+
+function showStatus(message: string, type: StatusType) {
+  const status = getEl<HTMLElement>('status');
 
   // Format error messages with suggestions if available
   if (type === 'error' && message.includes('\n\n')) {
@@ -641,14 +670,17 @@ function showStatus(message, type) {
 
 // AI Review Generation
 async function handleGenerateReview() {
-  const button = document.getElementById('generateReviewBtn');
-  const progressSection = document.getElementById('reviewProgressSection');
-  const progressText = document.getElementById('reviewProgress');
-  const progressFill = document.getElementById('progressFill');
+  const button = getEl<HTMLButtonElement>('generateReviewBtn');
+  const progressSection = getEl<HTMLElement>('reviewProgressSection');
+  const progressText = getEl<HTMLElement>('reviewProgress');
+  const progressFill = getEl<HTMLElement>('progressFill');
 
   try {
     // Check if we're on a GitHub PR page
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !tab.url) {
+      throw new Error('No active tab found');
+    }
     if (!tab.url.includes('github.com') || !tab.url.includes('/pull/')) {
       showStatus('Please navigate to a GitHub Pull Request page.', 'error');
       return;
@@ -679,18 +711,18 @@ async function handleGenerateReview() {
     chrome.tabs.sendMessage(tab.id, {
       action: 'generateAIReview',
       settings: settings
-    }, async (response) => {
+    }, async (response: any) => {
       if (chrome.runtime.lastError) {
         showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
         button.disabled = false;
-        button.textContent = '🤖 Generate AI Review';
+        button.textContent = t('generateAIReview');
         progressSection.style.display = 'none';
         return;
       }
 
       if (response.success) {
         // Store AI issues separately and merge with extracted issues
-        aiGeneratedIssues = response.issues || [];
+        aiGeneratedIssues = (response.issues || []) as Issue[];
         extractedIssues = [...extractedIssues, ...aiGeneratedIssues];
 
         progressFill.style.width = '100%';
@@ -699,11 +731,11 @@ async function handleGenerateReview() {
         // Show results
         if (aiGeneratedIssues.length > 0) {
           showStatus(`✓ AI review complete! Found ${aiGeneratedIssues.length} issue${aiGeneratedIssues.length !== 1 ? 's' : ''}`, 'success');
-          document.getElementById('formatSection').style.display = 'block';
-          document.getElementById('issuesSection').style.display = 'block';
-          document.getElementById('previewPostBtn').style.display = 'block';
-          document.getElementById('postToGitHubBtn').style.display = 'block';
-          renderIssuesList(extractedIssues, false);
+          getEl<HTMLElement>('formatSection').style.display = 'block';
+          getEl<HTMLElement>('issuesSection').style.display = 'block';
+          getEl<HTMLButtonElement>('previewPostBtn').style.display = 'block';
+          getEl<HTMLButtonElement>('postToGitHubBtn').style.display = 'block';
+          renderIssuesList(extractedIssues, null);
         } else {
           showStatus('AI review complete. No issues found.', 'info');
         }
@@ -718,11 +750,11 @@ async function handleGenerateReview() {
       }
 
       button.disabled = false;
-      button.textContent = '🤖 Generate AI Review';
+      button.textContent = t('generateAIReview');
     });
 
     // Listen for progress updates (per-popup-instance)
-    chrome.runtime.onMessage.addListener((request) => {
+    chrome.runtime.onMessage.addListener((request: any) => {
       if (request.action !== 'AI_REVIEW_PROGRESS') return;
       progressText.textContent = request.message;
       if (typeof request.progress === 'number') {
@@ -732,9 +764,9 @@ async function handleGenerateReview() {
 
   } catch (error) {
     console.error('Generate review error:', error);
-    showStatus('Error: ' + error.message, 'error');
+    showStatus('Error: ' + getErrorMessage(error), 'error');
     button.disabled = false;
-    button.textContent = '🤖 Generate AI Review';
+    button.textContent = t('generateAIReview');
     progressSection.style.display = 'none';
   }
 }
@@ -746,8 +778,8 @@ async function handlePreviewPost() {
     return;
   }
 
-  const previewContent = document.getElementById('previewContent');
-  const modal = document.getElementById('previewModal');
+  const previewContent = getEl<HTMLElement>('previewContent');
+  const modal = getEl<HTMLElement>('previewModal');
 
   // Generate preview HTML
   let previewHTML = `<div style="margin-bottom: 16px; padding: 12px; background: var(--bg-primary); border-radius: 4px; border-left: 4px solid var(--status-info-border);">
@@ -755,7 +787,7 @@ async function handlePreviewPost() {
   </div>`;
 
   // Group by file
-  const groupedByFile = {};
+  const groupedByFile: Record<string, (Issue & { previewIndex: number })[]> = {};
   aiGeneratedIssues.forEach((issue, index) => {
     if (!groupedByFile[issue.filePath]) {
       groupedByFile[issue.filePath] = [];
@@ -790,7 +822,7 @@ async function handlePreviewPost() {
 
 // Post AI Review to GitHub
 async function handlePostToGitHub(asDraft = false) {
-  const button = asDraft ? document.getElementById('postDraftBtn') : document.getElementById('postToGitHubBtn');
+  const button = asDraft ? getEl<HTMLButtonElement>('postDraftBtn') : getEl<HTMLButtonElement>('postToGitHubBtn');
 
   try {
     // Check if we have AI generated issues
@@ -814,6 +846,7 @@ async function handlePostToGitHub(asDraft = false) {
 
     // Get current PR info
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url) throw new Error('No active tab found');
     const prUrl = tab.url;
     const match = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
 
@@ -851,7 +884,7 @@ async function handlePostToGitHub(asDraft = false) {
     }
   } catch (error) {
     console.error('Post to GitHub error:', error);
-    showStatus('Error: ' + error.message, 'error');
+    showStatus('Error: ' + getErrorMessage(error), 'error');
     button.disabled = false;
     button.textContent = asDraft ? '📝 Post as Draft' : '📤 Post Review';
   }

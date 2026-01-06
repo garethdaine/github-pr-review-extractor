@@ -199,14 +199,21 @@
   <script>
     let allHistory = [];
     let filteredHistory = [];
+    const historyApi = window.reviewHistory || null;
+
+    if (!historyApi) {
+      document.getElementById('historyList').innerHTML =
+        '<div class="empty-state"><h2>History unavailable</h2><p>Failed to load history API. Try reloading the extension.</p></div>';
+    }
 
     // Load and display history
     async function loadHistory() {
+      if (!historyApi) return;
       const listContainer = document.getElementById('historyList');
       listContainer.innerHTML = '<div class="loading">Loading history...</div>';
 
       try {
-        allHistory = await getReviewHistory();
+        allHistory = await historyApi.getReviewHistory();
         filteredHistory = [...allHistory];
         renderHistory();
       } catch (error) {
@@ -283,11 +290,12 @@
 
     // Delete a review
     async function deleteReview(id) {
+      if (!historyApi) return;
       if (!confirm('Are you sure you want to delete this review from history?')) {
         return;
       }
 
-      const success = await deleteReviewFromHistory(id);
+      const success = await historyApi.deleteReviewFromHistory(id);
       if (success) {
         await loadHistory();
       } else {
@@ -391,8 +399,9 @@
 
     // Export all history as JSON
     async function exportAllHistory() {
+      if (!historyApi) return;
       try {
-        const json = await exportHistoryAsJSON();
+        const json = await historyApi.exportHistoryAsJSON();
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -408,12 +417,13 @@
 
     // Clear all history
     async function clearAllHistory() {
+      if (!historyApi) return;
       if (!confirm('Are you sure you want to clear all review history? This cannot be undone.')) {
         return;
       }
 
       try {
-        await clearReviewHistory();
+        await historyApi.clearReviewHistory();
         await loadHistory();
         alert('History cleared');
       } catch (error) {
@@ -447,8 +457,6 @@
   </script>
 </body>
 </html>
-
-
 
 
 

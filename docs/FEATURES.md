@@ -234,7 +234,7 @@ A: Use the individual copy buttons in the issue list.
 A: Based on keywords in the suggestion text (breaking change, security, etc.)
 
 **Q: Can I customize severity detection?**
-A: Currently no, but you can edit content.js to adjust keyword matching.
+A: Currently no, but you can edit `src/core/extractor.ts` to adjust keyword matching.
 
 **Q: Does this work with private repos?**
 A: Yes, as long as you're authenticated in GitHub and can view the PR.

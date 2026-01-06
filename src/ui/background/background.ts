@@ -81,7 +81,7 @@ async function postChatCompletionsWithTokenFallback(params: {
 }
 
 // Listen for messages from popup and content scripts
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request: any, sender, sendResponse) => {
   console.log('Background received message:', request.action);
 
   // Handle async operations
@@ -106,7 +106,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // Test LLM connection
-async function handleTestConnection(request, sendResponse) {
+async function handleTestConnection(request: any, sendResponse: (response: any) => void) {
   try {
     const { endpoint, apiKey, modelName } = request;
 
@@ -138,14 +138,14 @@ async function handleTestConnection(request, sendResponse) {
     console.error('Connection test error:', error);
     sendResponse({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
 
 // Retry helper with exponential backoff
-async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
-  let lastError;
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 3, initialDelay = 1000): Promise<T> {
+  let lastError: unknown;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -154,9 +154,9 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
       lastError = error;
 
       // Don't retry on validation errors or auth errors
-      if (error.message?.includes('401') || error.message?.includes('403') ||
-          error.message?.includes('404') || error.message?.includes('422')) {
-        throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('401') || message.includes('403') || message.includes('404') || message.includes('422')) {
+        throw error as any;
       }
 
       // Don't retry on last attempt
@@ -172,7 +172,7 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
 }
 
 // Call LLM for code review
-async function handleLLMCall(request, sendResponse) {
+async function handleLLMCall(request: any, sendResponse: (response: any) => void) {
   try {
     const { endpoint, apiKey, modelName, messages, maxTokens, temperature } = request;
 
@@ -206,13 +206,13 @@ async function handleLLMCall(request, sendResponse) {
     console.error('LLM call error:', error);
     sendResponse({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
 
 // Fetch PR data from GitHub API
-async function handleFetchPRData(request, sendResponse) {
+async function handleFetchPRData(request: any, sendResponse: (response: any) => void) {
   try {
     const { owner, repo, prNumber, githubToken } = request;
 
@@ -228,7 +228,7 @@ async function handleFetchPRData(request, sendResponse) {
 
     console.log(`Fetching PR data for ${owner}/${repo}#${prNumber}`);
 
-    const headers = {
+    const headers: Record<string, string> = {
       'Accept': 'application/vnd.github.v3+json'
     };
 
@@ -291,13 +291,13 @@ async function handleFetchPRData(request, sendResponse) {
     console.error('Fetch PR data error:', error);
     sendResponse({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
 
 // Get settings from storage
-async function handleGetSettings(sendResponse) {
+async function handleGetSettings(sendResponse: (response: any) => void) {
   try {
     const settings = await chrome.storage.local.get(null);
     console.log('Retrieved settings from storage');
@@ -309,13 +309,13 @@ async function handleGetSettings(sendResponse) {
     console.error('Get settings error:', error);
     sendResponse({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
 
 // Post review comments to GitHub
-async function handlePostGitHubReview(request, sendResponse) {
+async function handlePostGitHubReview(request: any, sendResponse: (response: any) => void) {
   try {
     const { owner, repo, prNumber, comments, githubToken, asDraft = false } = request;
 
@@ -332,30 +332,51 @@ async function handlePostGitHubReview(request, sendResponse) {
     // GitHub API endpoint for creating a review
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
 
-    // Format comments for GitHub API
-    // Try to get better line numbers by extracting from code context or using a default
-    const reviewComments = comments.map(comment => {
-      let line = comment.line;
+    function normalizePath(pathValue: unknown): string {
+      const raw = (pathValue ?? '').toString().trim();
+      // Strip chunk suffix added during chunked reviews
+      return raw.replace(/\s*\(part\s+\d+\/\d+\)\s*$/i, '');
+    }
 
-      // If no line number, try to extract from code context
-      if (!line && comment.codeContext) {
-        const lines = comment.codeContext.split('\n');
-        // Use middle line of context as default
-        line = Math.floor(lines.length / 2);
-      }
+    function inferLineFromCodeContext(codeContext: unknown): number | null {
+      if (!codeContext) return null;
+      const text = String(codeContext);
+      const match = text.match(/^\s*(\d+)\s*:/m);
+      if (!match) return null;
+      const n = parseInt(match[1], 10);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
 
-      // Default to line 1 if still no line number
-      if (!line || line < 1) {
-        line = 1;
-      }
+    function truncate(text: string, maxLen: number): string {
+      if (text.length <= maxLen) return text;
+      return text.slice(0, maxLen - 1) + '…';
+    }
 
-      return {
-        path: comment.filePath,
-        body: `**${comment.title}** (${comment.severity?.toUpperCase() || 'SUGGESTION'})\n\n${comment.content || ''}\n\n${comment.suggestion ? '**Suggestion:** ' + comment.suggestion : ''}\n\n---\n*Generated by AI Code Review*`,
-        line: line,
-        side: 'RIGHT' // Always comment on the new code in the PR
-      };
-    });
+    // Format comments for GitHub API (inline); skip obviously invalid paths
+    const reviewComments = (comments as any[])
+      .map((comment: any) => {
+        const path = normalizePath(comment.filePath);
+        const title = comment.title || 'AI Review Comment';
+        const severity = (comment.severity?.toUpperCase?.() || 'SUGGESTION') as string;
+        const content = truncate((comment.content || '').toString(), 1500);
+        const suggestion = truncate((comment.suggestion || '').toString(), 800);
+
+        let line: number | null = Number.isFinite(comment.line) ? comment.line : null;
+        if (!line || line < 1) line = inferLineFromCodeContext(comment.codeContext);
+        if (!line || line < 1) line = 1;
+
+        return {
+          path,
+          body:
+            `**${title}** (${severity})\n\n` +
+            `${content}\n\n` +
+            `${suggestion ? '**Suggestion:** ' + suggestion + '\n\n' : ''}` +
+            `---\n*Generated by AI Code Review*`,
+          line,
+          side: 'RIGHT'
+        };
+      })
+      .filter((c: any) => c.path && c.path !== 'Unknown file');
 
     const body = {
       body: `## 🤖 AI Code Review\n\nGenerated ${comments.length} review comment${comments.length !== 1 ? 's' : ''}.`,
@@ -388,6 +409,46 @@ async function handlePostGitHubReview(request, sendResponse) {
       const errorText = await response.text();
       console.error('Failed to post review:', response.status, errorText);
 
+      // If GitHub rejects inline comments (common for line/path resolution), fall back to a summary-only review body.
+      if (response.status === 422) {
+        const summaryBody =
+          `## 🤖 AI Code Review\n\n` +
+          `Generated ${comments.length} comment${comments.length !== 1 ? 's' : ''}, but GitHub could not resolve one or more inline line numbers.\n\n` +
+          `### Findings\n` +
+          (comments as any[]).map((c: any, i: number) => {
+            const sev = (c.severity || 'suggestion').toString().toUpperCase();
+            const file = normalizePath(c.filePath) || 'Unknown file';
+            const title = c.title || `Issue ${i + 1}`;
+            const content = truncate((c.content || c.suggestion || '').toString(), 2000);
+            return `#### ${i + 1}. ${title}\n- **Severity:** ${sev}\n- **File:** \`${file}\`\n\n${content}\n`;
+          }).join('\n');
+
+        const fallbackResponse = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            body: summaryBody,
+            event: asDraft ? 'PENDING' : 'COMMENT'
+          })
+        });
+
+        if (fallbackResponse.ok) {
+          const data = await fallbackResponse.json();
+          sendResponse({
+            success: true,
+            reviewId: data.id,
+            commentsPosted: 0,
+            isDraft: asDraft,
+            note: 'Posted as a summary-only review because GitHub rejected inline comments (422).'
+          });
+          return;
+        }
+      }
+
       // Provide more helpful error messages
       let errorMessage = `GitHub API error: ${response.status}`;
       if (response.status === 422) {
@@ -408,7 +469,7 @@ async function handlePostGitHubReview(request, sendResponse) {
     console.error('Post GitHub review error:', error);
     sendResponse({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }

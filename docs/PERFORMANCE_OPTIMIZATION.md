@@ -19,7 +19,7 @@
 - No user action needed!
 
 **Files Updated**:
-- `github-api.js` - Added large file detection and mixed-source loading
+- `src/services/github-api.ts` - Added large file detection and mixed-source loading
 
 ### 2. Performance Optimization Script Created
 

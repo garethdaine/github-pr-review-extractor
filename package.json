@@ -3,8 +3,9 @@
   "version": "4.0.0",
   "description": "Chrome extension to extract review comments from GitHub PRs",
   "scripts": {
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit",
     "build": "node build.js",
     "build:prod": "NODE_ENV=production node build.js",
@@ -15,9 +16,8 @@
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^1.0.0",
     "esbuild": "^0.27.2",
+    "jsdom": "^24.0.0",
     "typescript": "^5.3.0",
-    "vite": "^7.3.0",
-    "vite-plugin-static-copy": "^3.1.4",
     "vitest": "^1.0.0"
   },
   "type": "module"
