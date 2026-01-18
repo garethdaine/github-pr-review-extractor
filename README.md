@@ -1,6 +1,6 @@
 # GitHub PR Review Extractor
 
-A Chrome extension that extracts **all review comments** from GitHub Pull Request pages - including bots (Copilot, Cursor, etc.) and human reviewers - and generates AI-powered code reviews with full context.
+A Chrome extension that extracts **all review comments** from GitHub Pull Request pages (bots like Copilot/Cursor plus human reviewers), and can optionally generate an LLM-powered review of the PR diff.
 
 ## Features
 
@@ -82,7 +82,7 @@ A Chrome extension that extracts **all review comments** from GitHub Pull Reques
 
 ### Basic Extraction
 
-1. **Navigate** to any GitHub Pull Request page
+1. **Navigate** to any GitHub Pull Request page (preferably the **Files changed** tab)
 2. **Click** the extension icon in your browser toolbar
 3. **Extract** - Click "Extract All Issues" button
 4. **Review** the results:
@@ -103,29 +103,29 @@ A Chrome extension that extracts **all review comments** from GitHub Pull Reques
 3. **Click** "🤖 Generate AI Review" button
 4. **Wait** for AI analysis (progress shown in real-time)
 5. **Review** AI-generated issues with confidence scores
-6. **Preview & Post** to GitHub (optional):
+6. **Preview & Post** to GitHub (optional, requires a GitHub token):
    - Preview all comments before posting
-   - Post as draft or submit review
-   - Comments are posted to appropriate file locations
+   - Posts a PR review and attempts to place inline comments using model-provided line numbers
+   - Any findings that can’t be placed inline are included in the review summary
 
 ### Batch Processing
 
-1. **Open** batch processing page (from popup menu or `chrome://extensions`)
-2. **Enter** repository name (e.g., `owner/repo`)
-3. **Fetch PRs** - Get list of open PRs
-4. **Select** PRs to process
-5. **Process** - Review all selected PRs automatically
-6. **View** batch report with results
+1. **Open** batch processing page (Popup → **🔄 Batch**)
+2. **Paste** PR URLs (one per line)
+3. **Start Batch Review** to review each PR sequentially
+4. **Export** a combined report or JSON to your clipboard
 
 ### Analytics Dashboard
 
-1. **Open** analytics page (from popup menu)
+1. **Open** analytics page (Popup → **📊 Analytics**)
 2. **View** charts showing:
    - Severity distribution
    - Author type breakdown
    - Top files by issues
    - Review frequency over time
    - Average issues per PR
+
+> Analytics is based on your saved history (created when you click **Extract All Issues**).
 
 ## Development
 
@@ -149,11 +149,13 @@ github-pr-bot-extractor/
 │   │   ├── background/       # Background service worker
 │   │   ├── popup/            # Popup interface
 │   │   ├── settings/         # Settings page
-│   │   └── history/          # Review history page
+│   │   ├── analytics/        # Analytics page logic
+│   │   └── batch/            # Batch review page logic
 │   ├── utils/                # Utility functions
 │   │   ├── cache.ts          # Caching utilities
 │   │   ├── error-handler.ts  # Error handling
 │   │   ├── i18n.ts           # Internationalization
+│   │   ├── review-history.ts # Review history storage
 │   │   └── virtual-scroll.ts # Virtual scrolling
 │   ├── types/                # TypeScript type definitions
 │   └── locales/              # i18n message files
@@ -251,7 +253,7 @@ The project uses **esbuild** for fast TypeScript compilation and bundling.
 
 Configure in extension options (`chrome://extensions` → Options):
 
-- **LLM Endpoint URL**: Your local LLM server (e.g., `http://192.168.1.57:8000/v1`)
+- **LLM Endpoint URL**: An OpenAI-compatible base URL ending in `/v1` (e.g., `http://localhost:11434/v1` or `http://localhost:8000/v1`)
 - **API Key**: Authentication key for your LLM endpoint
 - **Model Name**: Model identifier (e.g., `deepseek-ai/deepseek-coder-1.3b-instruct`)
 - **Max Tokens**: Maximum response length (default: 1000)
@@ -262,7 +264,7 @@ Configure in extension options (`chrome://extensions` → Options):
 
 - **Issue Types**: Select which types to check (bugs, security, performance, style, error handling)
 - **Multi-Pass Review**: Enable two-pass review (critical first, then general)
-- **Confidence Threshold**: Minimum confidence score for AI issues (0.0-1.0)
+- **Minimum Confidence**: Stored in settings (not currently used to filter results)
 - **Custom System Prompt**: Override default AI prompt
 - **Prompt Templates**: Pre-defined templates (security-focused, performance-focused, etc.)
 

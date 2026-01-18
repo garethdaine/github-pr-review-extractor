@@ -1,6 +1,6 @@
 # Creating Extension Icons
 
-You need to create 3 PNG icon files for this Chrome extension to work properly.
+This repo already includes `icon16.png`, `icon48.png`, and `icon128.png`. You only need this guide if you want to replace/customize the icons.
 
 ## Quick Method (Using macOS)
 
@@ -41,3 +41,5 @@ After creating the icons, this folder should contain:
 - ✅ `icon128.png` (128x128 pixels)
 - ✅ `icon.svg` (template - can keep or delete)
 - ✅ `CREATE_ICONS.md` (this file - can delete after creating icons)
+
+The build copies these into `dist/icons/`.

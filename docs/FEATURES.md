@@ -1,240 +1,54 @@
 # Feature Guide
 
-## 🚀 Quick Start
+## Quick Start
 
-1. Click extension icon on any GitHub PR
-2. Click "Extract All Issues"
-3. Issues automatically copied in grouped format
-4. Choose different formats or copy individual issues
+1. Open a GitHub PR (preferably the **Files changed** tab).
+2. Click the extension icon.
+3. Click **Extract All Issues**.
+4. The **📁 Grouped** format is copied to your clipboard automatically.
+5. Use filters/presets, then export to other formats or copy individual items.
 
-## 📋 Format Options
+## What Gets Extracted
 
-### 📁 Grouped (Default)
-**Best for:** Cursor AI, comprehensive review
+- Review-thread comments on PR files (bots + humans).
+- Author/type detection (e.g., GitHub Copilot AI, Cursor Bot, other bots, human reviewers).
+- Outdated/resolved detection (toggleable).
+- Keyword-based severity: `critical`, `warning`, `suggestion`.
 
-Issues organized by file with:
-- Severity indicators (🔴 🟡 🔵)
-- Code context for each issue
-- Full suggestions
-- Instructions for AI
+## Export Formats (Extraction)
 
-**Use when:** You want to fix all issues systematically by file
+These buttons re-run extraction from the PR page and export the extracted review-thread comments:
 
-### 📋 Summary
-**Best for:** Quick overview, team sharing
+- **📁 Grouped**: grouped by file, includes a short “Instructions for Cursor AI” section at the end (useful for any assistant; safe to ignore).
+- **📄 No Instructions**: grouped by file, without the instructions section.
+- **📋 Summary**: file path + titles only.
+- **{ } JSON**: structured export including `issues[]` items (and optional AI fields like `confidence`/`line` when present).
+- **🌐 HTML**: styled export.
+- **📊 CSV**: spreadsheet-friendly export.
+- **📄 PDF**: opens a print dialog from an HTML export (use “Save as PDF”).
 
-Minimal format showing:
-- File paths
-- Issue titles with severity emoji
-- No code context or instructions
+## Filters & Sorting
 
-**Use when:** You need a quick list or want to share overview with team
+- **Exclude outdated issues** (default on)
+- **Severity** (single or multi-select)
+- **Author type** (bot/human/Copilot/Cursor)
+- **File path** (regex)
+- **Search** (title/content/file path)
+- **Presets** (Critical only, Bots only, etc.)
+- **Sorting** (severity/file/author/date/title)
 
-### 📄 No Instructions
-**Best for:** Documentation, human review
+## Copying Individual Items (Extraction + AI Review)
 
-Full details without AI instructions:
-- Grouped by file
-- All code context
-- Suggestions included
-- No Cursor AI instructions
+The **Individual Issues** list supports copying a single item. After you generate an AI review, AI findings are merged into this list and can be copied one-by-one the same way.
 
-**Use when:** Reviewing issues yourself or documenting in wiki/issues
+## AI Review
 
-### { } JSON
-**Best for:** Automation, integration
+- **🤖 Generate AI Review** analyzes the PR diff via an OpenAI-compatible LLM endpoint and produces review findings.
+- **👁️ Preview & Post to GitHub** posts the AI findings as a PR review (requires a GitHub token). Inline placement depends on model-provided line numbers; unplaceable items go into the review summary.
 
-Structured data export:
-```json
-{
-  "pr": { "title", "url", "extractedAt" },
-  "summary": { "total", "critical", "warning", "suggestion" },
-  "issues": [
-    {
-      "type": "GitHub Copilot AI",
-      "title": "...",
-      "content": "...",
-      "filePath": "...",
-      "codeContext": "...",
-      "severity": "warning",
-      "timestamp": "...",
-      "source": "..."
-    }
-  ]
-}
-```
+Setup details: `docs/AI_REVIEW_SETUP.md`
 
-**Use when:** Building tools, generating reports, tracking metrics
+## History & Analytics
 
-## 🎯 Severity Levels
-
-### 🔴 CRITICAL
-**Triggers:**
-- "breaking change"
-- "breaking api"  
-- "regression"
-- "security"
-- "vulnerability"
-
-**Action:** Fix immediately, high priority
-
-**Examples:**
-- Breaking API changes
-- Security vulnerabilities
-- Regressions that break functionality
-
-### 🟡 WARNING
-**Triggers:**
-- "could lead to"
-- "unsafe"
-- "not safe"
-- "inconsistent"
-- "degrades ux"
-
-**Action:** Fix soon, medium priority
-
-**Examples:**
-- Unsafe patterns that might cause issues
-- Code that could lead to bugs
-- UX degradations
-
-### 🔵 SUGGESTION
-**Default for:** Everything else
-
-**Action:** Fix when convenient, low priority
-
-**Examples:**
-- Code style improvements
-- Refactoring suggestions
-- Best practice recommendations
-
-## 📝 Individual Issue Copying
-
-### When to Use
-- Sharing specific issue with teammate
-- Creating individual GitHub issues
-- Focusing on one problem at a time
-- Adding to documentation
-
-### How to Use
-1. Extract all issues first
-2. Scroll to "Individual Issues" section
-3. Find the issue you want
-4. Click "Copy" button next to it
-5. Paste anywhere!
-
-### What You Get
-```markdown
-## 🔴 Issue Title
-
-**File:** `path/to/file.ts`
-**Severity:** CRITICAL
-
-**Code:**
-```
-123: const problematic = code;
-```
-
-**💡 Suggestion:**
-Detailed explanation of the issue and how to fix it.
-```
-
-## 💡 Tips & Tricks
-
-### Workflow with Cursor AI
-1. Extract issues in **Grouped** format
-2. Paste into Cursor chat
-3. Let Cursor fix critical issues first
-4. Review warnings manually
-5. Apply suggestions as needed
-
-### Workflow for Team Review
-1. Extract in **Summary** format
-2. Share in Slack/Teams
-3. Assign issues to team members
-4. Use individual copy for specific issues
-
-### Workflow for Documentation
-1. Extract in **No Instructions** format
-2. Add to PR description or wiki
-3. Track which issues are addressed
-4. Reference in commit messages
-
-### Workflow for Metrics/Automation
-1. Extract in **JSON** format
-2. Parse with scripts
-3. Track issue trends over time
-4. Generate reports
-5. Integrate with CI/CD
-
-## 🔍 Understanding the Output
-
-### Header Section
-```markdown
-# Code Review Issues - PR Title
-
-**PR:** https://github.com/...
-**Extracted:** Date and time
-**Total Issues:** 9 (🔴 2 Critical, 🟡 3 Warnings, 🔵 4 Suggestions)
-```
-- Quick overview of what was extracted
-- Severity breakdown at a glance
-
-### File Sections
-```markdown
-## 📁 `path/to/file.ts`
-3 issues found
-```
-- Files with most issues appear first
-- Easy to tackle one file at a time
-
-### Issue Details
-```markdown
-### 🔴 Issue Title
-**Severity:** CRITICAL
-
-**Code:**
-Shows the actual code being commented on
-
-**💡 Suggestion:**
-Explanation and recommendation
-```
-- Complete context for each issue
-- Easy to understand and fix
-
-## 🎨 UI Elements
-
-### Main Button
-**"Extract All Issues"** - Primary action, extracts and auto-copies
-
-### Format Buttons
-- **📁 Grouped** - Re-copy in grouped format
-- **📋 Summary** - Copy summary version
-- **📄 No Instructions** - Copy without AI instructions
-- **{ } JSON** - Export as JSON
-
-### Issue List
-- Scrollable list of all issues
-- Color-coded severity badges
-- Individual copy buttons
-- Shows file path for context
-
-## ❓ FAQ
-
-**Q: Which format should I use?**
-A: Start with Grouped (default). Use Summary for quick sharing, JSON for automation.
-
-**Q: Can I copy issues multiple times in different formats?**
-A: Yes! Extract once, then use format buttons to re-copy in any format.
-
-**Q: What if I only want one specific issue?**
-A: Use the individual copy buttons in the issue list.
-
-**Q: How are severity levels determined?**
-A: Based on keywords in the suggestion text (breaking change, security, etc.)
-
-**Q: Can I customize severity detection?**
-A: Currently no, but you can edit `src/core/extractor.ts` to adjust keyword matching.
-
-**Q: Does this work with private repos?**
-A: Yes, as long as you're authenticated in GitHub and can view the PR.
+- The **📚 History** page is populated when you click **Extract All Issues** (the extension saves extracted items to local history).
+- The **📊 Analytics** page summarizes what’s in history; if you haven’t extracted anything yet, it will be empty.

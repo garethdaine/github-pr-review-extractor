@@ -673,7 +673,6 @@ async function handlePostGitHubReview(request: any, sendResponse: (response: any
         headers,
         body: JSON.stringify({
           body: `## ${reviewTitle}`,
-          event: 'PENDING',
           commit_id: commitId
         })
       });

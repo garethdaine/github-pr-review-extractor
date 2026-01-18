@@ -371,14 +371,19 @@ export class LLMClient {
         return salvaged.map((issue, index) => this._normalizeIssue(issue, index, context));
       }
 
-      console.warn('No JSON array found in response');
+      const trimmed = response.trim();
+      if (!trimmed) {
+        return [];
+      }
+
+      console.debug('LLM returned unstructured review output; storing as fallback issue.');
       // 5) Fallback: preserve response as a single suggestion
       return [
         {
           type: 'Review',
           author: 'Code Reviewer',
           title: 'Review (unstructured response)',
-          content: response.trim(),
+          content: trimmed,
           filePath: context.filePath || 'Unknown file',
           codeContext: null,
           timestamp: new Date().toISOString(),

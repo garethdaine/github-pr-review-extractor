@@ -1,5 +1,7 @@
 # Update Summary - Version 2.1.0
 
+> Archived: historical notes for v2.x. The current codebase is TypeScript-based (v4.x). See `README.md` for current behavior.
+
 ## Changes Made
 
 ### ✅ Outdated Issue Detection

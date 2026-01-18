@@ -1,5 +1,7 @@
 # 🎉 Version 3.0.0 - Major Update: Extract ALL Review Comments!
 
+> Archived: historical release notes for v3.x (pre-TypeScript). See `README.md` for current behavior.
+
 ## What's New
 
 The extension has been significantly upgraded from a **bot-only extractor** to a **full PR review extractor** that captures comments from both bots AND humans!

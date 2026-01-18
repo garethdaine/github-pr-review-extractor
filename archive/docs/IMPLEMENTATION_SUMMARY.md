@@ -1,5 +1,7 @@
 # AI Code Review Implementation Summary
 
+> Archived: this document describes an earlier (pre-TypeScript) implementation and contains environment-specific examples. For current behavior and setup, see `README.md` and `docs/`.
+
 ## ✅ Implementation Complete!
 
 All phases of the AI-powered code review feature have been successfully implemented for the GitHub PR Review Extractor Chrome extension.
@@ -24,13 +26,13 @@ All phases of the AI-powered code review feature have been successfully implemen
 1. **AI_REVIEW_SETUP.md** - Complete setup guide
 2. **IMPLEMENTATION_SUMMARY.md** - This file
 
-### DGX Spark Scripts
+### Server Scripts (Archived)
 1. **~/llm-server/start-vllm.sh** - vLLM startup script
 2. **~/llm-server/test-vllm.sh** - Connection test script
 
 ## 🎯 Features Implemented
 
-### Phase 1: DGX Spark LLM Setup
+### Phase 1: LLM Server Setup
 - ✅ vLLM Docker image pulled
 - ✅ Startup scripts created
 - ⚠️ Requires NVIDIA Docker runtime configuration (see setup guide for Ollama alternative)
@@ -86,10 +88,10 @@ All phases of the AI-powered code review feature have been successfully implemen
 ## 🚀 Next Steps
 
 ### Immediate (Required)
-1. **Install LLM Server on DGX Spark:**
+1. **Install an LLM server:**
    - **Recommended:** Use Ollama (easiest)
      ```bash
-     ssh 192.168.1.57
+     ssh <LLM_HOST>
      curl -fsSL https://ollama.com/install.sh | sudo sh
      ollama pull deepseek-coder:6.7b
      OLLAMA_HOST=0.0.0.0:11434 ollama serve
@@ -97,7 +99,7 @@ All phases of the AI-powered code review feature have been successfully implemen
    
    - **OR** Configure NVIDIA Docker runtime for vLLM:
      ```bash
-     ssh 192.168.1.57
+     ssh <LLM_HOST>
      sudo apt-get install -y nvidia-container-toolkit
      sudo systemctl restart docker
      ~/llm-server/start-vllm.sh
@@ -107,7 +109,7 @@ All phases of the AI-powered code review feature have been successfully implemen
    - Open `chrome://extensions/`
    - Enable "Developer mode"
    - Click "Load unpacked"
-   - Select `/Users/garethdaine/Code/github-pr-bot-extractor`
+   - Select the built output folder (`dist/`)
 
 3. **Configure Extension:**
    - Right-click extension icon → Options
@@ -169,11 +171,11 @@ All phases of the AI-powered code review feature have been successfully implemen
 │  background.js │ ← Makes actual API call
 └───────┬────────┘
         │
-        ├─→ POST http://192.168.1.57:11434/v1/chat/completions
+        ├─→ POST http://<LLM_HOST>:11434/v1/chat/completions
         │
         v
 ┌────────────────┐
-│  DGX Spark LLM │ ← Analyzes code, returns issues
+│   LLM Server   │ ← Analyzes code, returns issues
 └───────┬────────┘
         │
         └─→ Returns JSON array of issues

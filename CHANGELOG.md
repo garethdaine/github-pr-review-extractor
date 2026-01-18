@@ -16,24 +16,24 @@
 - ✅ **Prompt Templates** - Pre-defined templates (security, performance, style, comprehensive)
 - ✅ **Configurable Issue Types** - Select which types to check (bugs, security, performance, style, error handling)
 - ✅ **Preview Before Posting** - Review AI comments before posting to GitHub
-- ✅ **Draft Reviews** - Post reviews as drafts for manual review
 
 ### 📊 Analytics & Batch Processing
-- ✅ **Analytics Dashboard** - Visualize review history with Chart.js
+- ✅ **Analytics Dashboard** - Visualize review history trends
   - Severity distribution charts
   - Author type breakdown
   - Top files by issues
   - Review frequency over time
   - Average issues per PR
 - ✅ **Batch Processing** - Process multiple PRs at once
-  - Select repository and fetch PRs
-  - Process selected PRs automatically
+  - Paste PR URLs (one per line)
+  - Process PRs sequentially with progress updates
+  - Pause/resume/cancel batch runs
   - Batch progress tracking
   - Export batch reports
 
 ### 📚 Review History
 - ✅ **Review History** - Track and revisit past reviews
-  - Store extracted and AI-generated reviews
+  - Store extracted review-thread comments (most recent 50)
   - Search and filter history
   - Export history as JSON
   - Delete individual entries
